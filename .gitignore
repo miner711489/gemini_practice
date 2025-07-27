@@ -126,3 +126,9 @@ dmypy.json
 .DS_Store
 
 config.xml
+
+example/
+
+ven/
+
+.vscode/

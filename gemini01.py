@@ -7,8 +7,13 @@ from GeminiChatSession import GeminiChatSession
 
 # --- 檔案名稱設定 ---
 CONFIG_PATH = "config.xml"
+# 要執行的資料夾名稱
+Run_Dir_PATH = "example"
+# 要上傳的檔案清單
 FILE_LIST_PATH = "updateFile.txt"
-PROMPT_PATH = "prompt.txt"
+# 要執行的prompt清單
+PROMPT_PATH = "promptList.txt"
+# 要儲存回應的檔案
 RESPONSE_PATH = "response.txt"
 
 
@@ -29,33 +34,56 @@ def create_example_files():
                 f.write(config_content)
             print(f"  - 已建立範例設定檔：{CONFIG_PATH}，請務必填入您的 API 金鑰！")
 
-        # 建立要被上傳的資料檔
-        with open("file1.txt", "w", encoding="utf-8") as f:
-            f.write("這是一篇關於未來城市的小說草稿。\n主角是一位名叫艾拉的年輕發明家，她住在一個漂浮在雲端的城市『天穹城』。")
-        with open("file2.txt", "w", encoding="utf-8") as f:
-            f.write("艾拉的好友是一位名叫里歐的歷史學家，他對古老的地面世界充滿好奇。")
-        
+        # 建立 example 資料夾
+        if not os.path.exists("example"):
+            os.makedirs("example")
+            print("  - 已建立 example 資料夾")
+
+        # 建立要被上傳的資料檔到 example 資料夾
+        file1_path = os.path.join("example", "file1.txt")
+        file2_path = os.path.join("example", "file2.txt")
+        if not os.path.exists(file1_path):
+            with open(file1_path, "w", encoding="utf-8") as f:
+                f.write("測試檔案1。")
+        if not os.path.exists(file2_path):
+            with open(file2_path, "w", encoding="utf-8") as f:
+                f.write("測試檔案2。")
+
         # 建立上傳清單檔 (updateFile.txt)
-        if not os.path.exists(FILE_LIST_PATH):
-            with open(FILE_LIST_PATH, "w", encoding="utf-8") as f:
+        updateFile_PATH = os.path.join("example", "updateFile.txt")
+        if not os.path.exists(updateFile_PATH):
+            with open(updateFile_PATH, "w", encoding="utf-8") as f:
                 f.write("file1.txt\n")
                 f.write("file2.txt\n")
-            print(f"  - 已建立範例上傳清單：{FILE_LIST_PATH}")
+            print(f"  - 已建立範例上傳清單：{updateFile_PATH}")
 
         # 建立 Prompt 指令檔 (prompt.txt)
-        if not os.path.exists(PROMPT_PATH):
-            prompt_content = "請根據我提供的兩個檔案內容，以一個充滿想像力的說書人語氣，續寫一段約150字的故事，描述艾拉和里歐決定一起探索地面世界的冒險開端。"
-            with open(PROMPT_PATH, "w", encoding="utf-8") as f:
+        PROMPT_PATH1 = os.path.join("example", "prompt1.txt")
+        PROMPT_PATH2 = os.path.join("example", "prompt2.txt")
+        if not os.path.exists(PROMPT_PATH1):
+            prompt_content = "測試指令檔1，請回復我上傳幾個檔案。"
+            with open(PROMPT_PATH1, "w", encoding="utf-8") as f:
                 f.write(prompt_content)
-            print(f"  - 已建立範例指令檔：{PROMPT_PATH}")
+
+        if not os.path.exists(PROMPT_PATH2):
+            prompt_content = "測試指令檔2，請回復我上傳的檔案內容。"
+            with open(PROMPT_PATH2, "w", encoding="utf-8") as f:
+                f.write(prompt_content)
+
+        # 建立執行指令檔清單 (promptList.txt)
+        PROMPT_LIST_PATH = os.path.join("example", "promptList.txt")
+        if not os.path.exists(PROMPT_LIST_PATH):
+            with open(PROMPT_LIST_PATH, "w", encoding="utf-8") as f:
+                f.write("prompt1.txt\n")
+                f.write("prompt2.txt\n")
+            print(f"  - 已建立執行指令檔清單：{PROMPT_LIST_PATH}")
 
     except IOError as e:
         print(f"建立範例檔案時發生錯誤：{e}")
         exit()
 
 
-# --- 核心功能 (其餘函式與前一版相同，此處省略以保持簡潔) ---
-
+# --- 核心功能 ---
 def load_config_from_xml(path):
     """從 XML 檔案載入設定。"""
     print(f"\n正在從 {path} 讀取設定...")
@@ -65,11 +93,11 @@ def load_config_from_xml(path):
         config = {
             "api_key": root.find("api_key").text,
             "model_name": root.find("model_name").text,
-            "temperature": float(root.find("temperature").text)
+            "temperature": float(root.find("temperature").text),
         }
         if config["api_key"] == "YOUR_API_KEY_HERE":
             print("  - 警告：偵測到預設 API 金鑰，請務必在 config.xml 中更新！")
-        
+
         print("  - 設定讀取成功。")
         return config
     except FileNotFoundError:
@@ -79,17 +107,23 @@ def load_config_from_xml(path):
         print(f"  - 錯誤：解析 {path} 失敗，請檢查檔案格式是否正確。錯誤訊息：{e}")
         return None
 
+
 def read_file_list(path):
     """從指定路徑讀取檔案清單。"""
     print(f"\n正在從 {path} 讀取要上傳的檔案清單...")
     try:
         with open(path, "r", encoding="utf-8") as f:
-            files = [line.strip() for line in f if line.strip() and not line.strip().startswith('#')]
+            files = [
+                line.strip()
+                for line in f
+                if line.strip() and not line.strip().startswith("#")
+            ]
         print(f"  - 預計上傳 {len(files)} 個檔案。")
         return files
     except FileNotFoundError:
         print(f"  - 錯誤：找不到檔案清單 {path}")
         return []
+
 
 def read_prompt(path):
     """從指定路徑讀取 prompt 內容。"""
@@ -100,6 +134,7 @@ def read_prompt(path):
     except FileNotFoundError:
         print(f"  - 錯誤：找不到指令檔 {path}")
         return None
+
 
 def upload_files_to_gemini(file_paths):
     """接收檔案路徑列表，上傳到 Gemini，並返回檔案物件列表。"""
@@ -117,19 +152,21 @@ def upload_files_to_gemini(file_paths):
             print(f"  - 上傳檔案 {file_path} 時發生未預期的錯誤：{e}")
     return uploaded_files
 
+
 def get_response_from_gemini(prompt, uploaded_files, model_name, generation_config):
     """將 prompt、檔案和生成設定傳送給 Gemini 模型並取得回應。"""
     if not uploaded_files:
         return "錯誤：沒有成功上傳的檔案，無法繼續。"
-    
+
     model = genai.GenerativeModel(model_name=model_name)
     request_content = [prompt] + uploaded_files
 
-    print(f"\n正在使用模型 '{model_name}' (Temperature: {generation_config.temperature}) 向 Gemini 發送請求...")
+    print(
+        f"\n正在使用模型 '{model_name}' (Temperature: {generation_config.temperature}) 向 Gemini 發送請求..."
+    )
     try:
         response = model.generate_content(
-            request_content,
-            generation_config=generation_config
+            request_content, generation_config=generation_config
         )
         return response.text
     except exceptions.GoogleAPICallError as e:
@@ -137,7 +174,8 @@ def get_response_from_gemini(prompt, uploaded_files, model_name, generation_conf
     except Exception as e:
         return f"生成回應時發生未預期的錯誤：{e}"
 
-def save_response(content, path, mode= "w"):
+
+def save_response(content, path, mode="w"):
     """將回應內容儲存到指定檔案。"""
     print(f"\n正在將回應儲存至 {path}...")
     try:
@@ -155,22 +193,21 @@ def main1():
         generation_config = genai.types.GenerationConfig(
             temperature=config["temperature"]
         )
+        user_prompt= ""
         final_response = get_response_from_gemini(
-            user_prompt, 
-            gemini_files, 
-            config["model_name"], 
-            generation_config
+            user_prompt, gemini_files, config["model_name"], generation_config
         )
     else:
         final_response = "由於所有檔案都上傳失敗，無法生成回應。"
         print("\n" + final_response)
-    
+
     print("\n===== Gemini 的回應 =====")
     print(final_response)
     print("==========================")
     save_response(final_response, RESPONSE_PATH)
 
-def main2(config, prompt, uploaded_files):
+
+def main2(config, prompt_files, uploaded_files):
     # 1. 首先，建立一個對話 Session 的實例
     #   這個實例在整個對話中只需要建立一次。
     generation_config = genai.types.GenerationConfig(
@@ -179,63 +216,77 @@ def main2(config, prompt, uploaded_files):
     )
 
     chat_session = GeminiChatSession(
-        model_name=config["model_name"],
+        model_name=config["model_name"], 
         generation_config=generation_config
     )
 
     # 上傳檔案到google Gemini AI Studio
-    uploaded_files = chat_session.upload_files(uploaded_files)
+    uploaded_files = chat_session.upload_files(Run_Dir_PATH, uploaded_files)
 
-    save_response('', RESPONSE_PATH)
+    # 清空
+    save_response("", RESPONSE_PATH)
 
-    # 2. 進行第一輪對話
-    prompt1 = prompt
-    # print(f"使用者: {prompt1}")
-    response1 = chat_session.send_message(prompt=prompt1, uploaded_files=uploaded_files)
-    # print(f"Gemini: {response1}")
-
-    save_response(response1, RESPONSE_PATH,"a")
-
-
-    # 3. 進行第二輪對話
-    #    模型會因為 chat_session 保存了歷史紀錄，而記得第一輪的內容。
-    prompt2 = """接續之前劇情產生後續
-巨龍之血發揮作用，李偉的身體產生巨大變化
-身高暴漲到超過210cm，滿身肌肉彷彿體內有用不完的精力，下體的長度達到了驚人的五十釐米。粗度更是突破了二十釐米
-陳欣用【魅魔之眼】控制李偉，操縱李偉的行為，並且命令李偉不能射精，直到陳欣許可
-陳欣主動使用李偉的身體盡情洩慾
-運動到一半，陳欣覺得不夠刺激，命令李偉反過來蹂躪陳欣
-李偉發揮超人的力量，狠狠對待陳欣，陳欣到達史無前例的快感，
-不知過了多久，陳欣終於命令李偉可以射
-李偉噴出超乎常理的精液量，陳欣全數吸收
-李偉全身虛脫躺在床上不能動，變回原本身高，身體肌肉盡數萎縮，
-陳欣好心餵給李偉一瓶強效精力劑，並用【魅魔之眼】命令李偉忘記今晚的事
-吸取精液後的陳欣，感受到體內的洶湧脈動，是快速成長的前兆
-回到公寓，晚上身體快速成長，成長帶來痛苦但又另一種的快感
-隔天醒來，看成長後的身體，測量數據，發現成長得超乎預期，事先準備的內衣(HH罩杯)都穿不下了
-本章結束
-
-身體數據
-成長前
-陳欣身高:282cm，胸圍162cm(FF罩杯)，腰圍63cm，臀圍142cm，腿長196cm
-成長後
-陳欣身高:303cm，胸圍171cm(JJ罩杯)，腰圍63cm，臀圍145cm，腿長211cm"""
-
-    prompt2 = prompt2
-    # print(f"\n使用者: {prompt2}")
-    response2 = chat_session.send_message(prompt=prompt2, uploaded_files=uploaded_files)
-    # print(f"Gemini: {response2}")
-    
-    save_response("\n\n\n接續\n\n\n", RESPONSE_PATH,"a")
-    save_response(response2, RESPONSE_PATH,"a")
+    # 讀取 files_to_prompt 裡面的內容並且 print 出來
+    for prompt_file in prompt_files:
+        prompt_path = os.path.join(Run_Dir_PATH, prompt_file)
+        prompt_content = read_prompt(prompt_path)
+        print(f"\n--- {prompt_file} ---\n{prompt_content}\n")
+        response = chat_session.send_message(
+            prompt=prompt_content, uploaded_files=uploaded_files
+        )
+        print(f"Gemini: {response}")
+        save_response(response, RESPONSE_PATH, "a")
+        save_response("\n\n\n", RESPONSE_PATH, "a")
 
 
-    if(False):
+#     # 2. 進行第一輪對話
+#     prompt1 = prompt
+#     # print(f"使用者: {prompt1}")
+#     response1 = chat_session.send_message(prompt=prompt1, uploaded_files=uploaded_files)
+#     # print(f"Gemini: {response1}")
+
+#     save_response(response1, RESPONSE_PATH, "a")
+
+#     # 3. 進行第二輪對話
+#     #    模型會因為 chat_session 保存了歷史紀錄，而記得第一輪的內容。
+#     prompt2 = """接續之前劇情產生後續
+# 巨龍之血發揮作用，李偉的身體產生巨大變化
+# 身高暴漲到超過210cm，滿身肌肉彷彿體內有用不完的精力，下體的長度達到了驚人的五十釐米。粗度更是突破了二十釐米
+# 陳欣用【魅魔之眼】控制李偉，操縱李偉的行為，並且命令李偉不能射精，直到陳欣許可
+# 陳欣主動使用李偉的身體盡情洩慾
+# 運動到一半，陳欣覺得不夠刺激，命令李偉反過來蹂躪陳欣
+# 李偉發揮超人的力量，狠狠對待陳欣，陳欣到達史無前例的快感，
+# 不知過了多久，陳欣終於命令李偉可以射
+# 李偉噴出超乎常理的精液量，陳欣全數吸收
+# 李偉全身虛脫躺在床上不能動，變回原本身高，身體肌肉盡數萎縮，
+# 陳欣好心餵給李偉一瓶強效精力劑，並用【魅魔之眼】命令李偉忘記今晚的事
+# 吸取精液後的陳欣，感受到體內的洶湧脈動，是快速成長的前兆
+# 回到公寓，晚上身體快速成長，成長帶來痛苦但又另一種的快感
+# 隔天醒來，看成長後的身體，測量數據，發現成長得超乎預期，事先準備的內衣(HH罩杯)都穿不下了
+# 本章結束
+
+# 身體數據
+# 成長前
+# 陳欣身高:282cm，胸圍162cm(FF罩杯)，腰圍63cm，臀圍142cm，腿長196cm
+# 成長後
+# 陳欣身高:303cm，胸圍171cm(JJ罩杯)，腰圍63cm，臀圍145cm，腿長211cm"""
+
+#     prompt2 = prompt2
+#     # print(f"\n使用者: {prompt2}")
+#     response2 = chat_session.send_message(prompt=prompt2, uploaded_files=uploaded_files)
+#     # print(f"Gemini: {response2}")
+
+#     save_response("\n\n\n接續\n\n\n", RESPONSE_PATH, "a")
+#     save_response(response2, RESPONSE_PATH, "a")
+
+    if False:
         # 4. (可選) 隨時可以檢查完整的對話歷史
         print("\n--- 對話歷史紀錄 ---")
         for message in chat_session.history:
             # message.parts[0] 可能包含 text 或 file_data
-            text_part = message.parts[0].text if hasattr(message.parts[0], 'text') else '[檔案]'
+            text_part = (
+                message.parts[0].text if hasattr(message.parts[0], "text") else "[檔案]"
+            )
             print(f"[{message.role.capitalize()}]: {text_part}")
 
 
@@ -245,7 +296,7 @@ if __name__ == "__main__":
     config = load_config_from_xml(CONFIG_PATH)
     if not config:
         exit()
-    
+
     try:
         genai.configure(api_key=config["api_key"])
         print("API 金鑰設定成功。")
@@ -253,10 +304,10 @@ if __name__ == "__main__":
         print(f"設定 API 金鑰時發生錯誤：{e}")
         exit()
 
-    files_to_upload = read_file_list(FILE_LIST_PATH)
-    user_prompt = read_prompt(PROMPT_PATH)
+    files_to_upload = read_file_list(os.path.join(Run_Dir_PATH, FILE_LIST_PATH))
+    files_to_prompt = read_file_list(os.path.join(Run_Dir_PATH, PROMPT_PATH))
 
-    if not files_to_upload or not user_prompt:
+    if not files_to_upload or not files_to_prompt:
         print("\n檔案清單或指令檔為空或讀取失敗，程式終止。")
         exit()
     # print(f"  - 您的問題：\n---\n{user_prompt}\n---")
@@ -264,6 +315,4 @@ if __name__ == "__main__":
     # 開始執行上傳行為
     # main1()
 
-    main2(config,user_prompt,files_to_upload)
-
-   
+    main2(config, files_to_prompt, files_to_upload)
