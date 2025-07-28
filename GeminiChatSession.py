@@ -29,14 +29,6 @@ class GeminiChatSession:
         """
 
         system_instruction_text = """
-        小說產生原則
-        沒有字數限制，但是要確保文章品質的情況下盡可能輸出更多文字與延長篇幅，你需取得非常詳細，忌避免重複和無聊內容。
-        盡可能像人與人之間的對話，包含對話和聲音描寫，描寫心理變化和感受，使用通俗易懂的語言，且要有一對話內容與連續性。
-        角色之間的互動更具臨場感。若角色之間有衝突或情感波動，務必鋪陳心理變化與反應過程，讓讀者能感受到角色內心的拉扯與真實性。
-        避免過度文學化表達，使用直白具體的描述方式，甚至允許部分粗俗F。
-        場景要夠震撼，多細節才能寫得真實，給人身歷其境的感受。
-        故事要符合邏輯，所有內容融為一體，不分點輸出但可以分段，不要自作主張地分章節，我需要連續的文章，上下文的對話可以貫通的那種。
-        我需要你給我由對話。
         """
 
         # if api_key:
@@ -53,7 +45,7 @@ class GeminiChatSession:
         self.chat = self.model.start_chat(history=initial_history or [])
         print("對話 session 已成功啟動。")
 
-    def upload_files(self, Run_Dir_PATH, file_paths: List[str]) -> List[Any]:
+    def upload_files(self, file_paths: List[str]) -> List[Any]:
         """
         上傳本地檔案到 Google Gemini API，回傳可用於對話的檔案物件列表。
 
@@ -68,7 +60,7 @@ class GeminiChatSession:
             try:
                 print(f"正在上傳檔案：{path}")
                 # 假設 genai 有 upload_file 方法，實際請依官方 API 調整
-                file_obj = genai.upload_file(os.path.join(Run_Dir_PATH, path))
+                file_obj = genai.upload_file(path)
                 uploaded_files.append(file_obj)
                 print(f"檔案上傳成功：{path}")
             except Exception as e:

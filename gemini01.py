@@ -1,4 +1,7 @@
 import os
+import re
+import shutil
+from datetime import datetime
 import xml.etree.ElementTree as ET
 import google.generativeai as genai
 from google.api_core import exceptions
@@ -7,14 +10,21 @@ from GeminiChatSession import GeminiChatSession
 
 # --- 檔案名稱設定 ---
 CONFIG_PATH = "config.xml"
-# 要執行的資料夾名稱
-Run_Dir_PATH = "example"
 # 要上傳的檔案清單
 FILE_LIST_PATH = "updateFile.txt"
 # 要執行的prompt清單
 PROMPT_PATH = "promptList.txt"
 # 要儲存回應的檔案
 RESPONSE_PATH = "response.txt"
+
+# 要執行的資料夾名稱
+Run_Dir_PATH = "福利姬"
+# 存放要上傳檔案資料夾名稱
+UploadFiles_Dir = "UploadFiles"
+# 存放要問Gmeini的Prompt檔的資料夾名稱
+PromptFiles_Dir = "Prompts"
+# 存放每次問Gmeini的reponse的資料夾名稱
+ResponseFiles_Dir = "Response"
 
 
 # --- 準備範例檔案 (僅為方便初次執行) ---
@@ -26,7 +36,7 @@ def create_example_files():
         if not os.path.exists(CONFIG_PATH):
             config_content = """<config>
     <api_key>YOUR_API_KEY_HERE</api_key>
-    <model_name>gemini-1.5-flash</model_name>
+    <model_name>gemini-2.5-flash</model_name>
     <temperature>0.7</temperature>
 </config>
 """
@@ -40,43 +50,50 @@ def create_example_files():
             print("  - 已建立 example 資料夾")
 
         # 建立要被上傳的資料檔到 example 資料夾
-        file1_path = os.path.join("example", "file1.txt")
-        file2_path = os.path.join("example", "file2.txt")
+        file1_path = os.path.join("example", UploadFiles_Dir, "file1.txt")
+        file2_path = os.path.join("example", UploadFiles_Dir, "file2.txt")
+
+        os.makedirs(os.path.dirname(file1_path), exist_ok=True)
         if not os.path.exists(file1_path):
             with open(file1_path, "w", encoding="utf-8") as f:
-                f.write("測試檔案1。")
+                f.write("測試內容1。")
         if not os.path.exists(file2_path):
             with open(file2_path, "w", encoding="utf-8") as f:
-                f.write("測試檔案2。")
+                f.write("測試內容2。")
 
         # 建立上傳清單檔 (updateFile.txt)
-        updateFile_PATH = os.path.join("example", "updateFile.txt")
-        if not os.path.exists(updateFile_PATH):
-            with open(updateFile_PATH, "w", encoding="utf-8") as f:
-                f.write("file1.txt\n")
-                f.write("file2.txt\n")
-            print(f"  - 已建立範例上傳清單：{updateFile_PATH}")
+        # 廢除
+        # updateFile_PATH = os.path.join("example", "updateFile.txt")
+        # if not os.path.exists(updateFile_PATH):
+        #     with open(updateFile_PATH, "w", encoding="utf-8") as f:
+        #         f.write("file1.txt\n")
+        #         f.write("file2.txt\n")
+        #     print(f"  - 已建立範例上傳清單：{updateFile_PATH}")
+        # 廢除
 
         # 建立 Prompt 指令檔 (prompt.txt)
-        PROMPT_PATH1 = os.path.join("example", "prompt1.txt")
-        PROMPT_PATH2 = os.path.join("example", "prompt2.txt")
+        PROMPT_PATH1 = os.path.join("example", PromptFiles_Dir, "prompt01.txt")
+        PROMPT_PATH2 = os.path.join("example", PromptFiles_Dir, "prompt02.txt")
+        os.makedirs(os.path.dirname(PROMPT_PATH1), exist_ok=True)
         if not os.path.exists(PROMPT_PATH1):
-            prompt_content = "測試指令檔1，請回復我上傳幾個檔案。"
+            prompt_content = "測試指令1，請回復我上傳幾個檔案。"
             with open(PROMPT_PATH1, "w", encoding="utf-8") as f:
                 f.write(prompt_content)
 
         if not os.path.exists(PROMPT_PATH2):
-            prompt_content = "測試指令檔2，請回復我上傳的檔案內容。"
+            prompt_content = "測試指令2，請回復我剛剛上傳的檔案內容。"
             with open(PROMPT_PATH2, "w", encoding="utf-8") as f:
                 f.write(prompt_content)
 
+        # 廢除
         # 建立執行指令檔清單 (promptList.txt)
-        PROMPT_LIST_PATH = os.path.join("example", "promptList.txt")
-        if not os.path.exists(PROMPT_LIST_PATH):
-            with open(PROMPT_LIST_PATH, "w", encoding="utf-8") as f:
-                f.write("prompt1.txt\n")
-                f.write("prompt2.txt\n")
-            print(f"  - 已建立執行指令檔清單：{PROMPT_LIST_PATH}")
+        # PROMPT_LIST_PATH = os.path.join("example", "promptList.txt")
+        # if not os.path.exists(PROMPT_LIST_PATH):
+        #     with open(PROMPT_LIST_PATH, "w", encoding="utf-8") as f:
+        #         f.write("prompt1.txt\n")
+        #         f.write("prompt2.txt\n")
+        #     print(f"  - 已建立執行指令檔清單：{PROMPT_LIST_PATH}")
+        # 廢除
 
     except IOError as e:
         print(f"建立範例檔案時發生錯誤：{e}")
@@ -125,54 +142,49 @@ def read_file_list(path):
         return []
 
 
+def read_UploaderFile_list(path):
+    """從指定路徑讀取檔案清單。"""
+    print(f"\n正在從 {path} 讀取要上傳的檔案清單...")
+    uploader_Files = []
+    for filename in os.listdir(path):
+        uploader_Files.append(os.path.join(path, filename))
+
+    print("讀取完畢...")
+    return uploader_Files
+
+
+def read_PromptFile_list(path):
+    """從指定目錄讀取符合 Prompt數字.txt 格式的檔案，並依數字排序。"""
+    print(f"\n正在從 {path} 讀取 Prompt 檔案清單...")
+    prompt_files = []
+    pattern = re.compile(r"^prompt(\d+)\.txt$")
+
+    # 遍歷目錄
+    for filename in os.listdir(path):
+        match = pattern.match(filename)
+        if match:
+            # 取出數字作為排序依據
+            num = int(match.group(1))
+            prompt_files.append((num, filename))
+
+    # 依數字排序
+    prompt_files.sort(key=lambda x: x[0])
+
+    # 只回傳檔名清單（或可加完整路徑）
+    sorted_filenames = [os.path.join(path, filename) for _, filename in prompt_files]
+    print(f"  - 找到 {len(sorted_filenames)} 個 Prompt 檔案。")
+    return sorted_filenames
+
+
 def read_prompt(path):
     """從指定路徑讀取 prompt 內容。"""
-    print(f"\n正在從 {path} 讀取您的問題...")
+    # print(f"\n正在從 {path} 讀取您的問題...")
     try:
         with open(path, "r", encoding="utf-8") as f:
             return f.read().strip()
     except FileNotFoundError:
         print(f"  - 錯誤：找不到指令檔 {path}")
         return None
-
-
-def upload_files_to_gemini(file_paths):
-    """接收檔案路徑列表，上傳到 Gemini，並返回檔案物件列表。"""
-    uploaded_files = []
-    print("\n開始上傳檔案...")
-    for file_path in file_paths:
-        try:
-            print(f"  - 上傳中：{file_path}")
-            file_obj = genai.upload_file(path=file_path)
-            uploaded_files.append(file_obj)
-            print(f"  - 成功：{file_obj.display_name} (URI: {file_obj.uri})")
-        except FileNotFoundError:
-            print(f"  - 錯誤：找不到檔案 {file_path}")
-        except Exception as e:
-            print(f"  - 上傳檔案 {file_path} 時發生未預期的錯誤：{e}")
-    return uploaded_files
-
-
-def get_response_from_gemini(prompt, uploaded_files, model_name, generation_config):
-    """將 prompt、檔案和生成設定傳送給 Gemini 模型並取得回應。"""
-    if not uploaded_files:
-        return "錯誤：沒有成功上傳的檔案，無法繼續。"
-
-    model = genai.GenerativeModel(model_name=model_name)
-    request_content = [prompt] + uploaded_files
-
-    print(
-        f"\n正在使用模型 '{model_name}' (Temperature: {generation_config.temperature}) 向 Gemini 發送請求..."
-    )
-    try:
-        response = model.generate_content(
-            request_content, generation_config=generation_config
-        )
-        return response.text
-    except exceptions.GoogleAPICallError as e:
-        return f"呼叫 Google API 時發生錯誤：{e}"
-    except Exception as e:
-        return f"生成回應時發生未預期的錯誤：{e}"
 
 
 def save_response(content, path, mode="w"):
@@ -186,28 +198,7 @@ def save_response(content, path, mode="w"):
         print(f"  - 儲存檔案時發生錯誤：{e}")
 
 
-def main1():
-    ## 邏輯：先上傳檔案到Google的Server，在附上相關的檔案資訊讓他抓已經上傳的檔案
-    gemini_files = upload_files_to_gemini(files_to_upload)
-    if gemini_files:
-        generation_config = genai.types.GenerationConfig(
-            temperature=config["temperature"]
-        )
-        user_prompt= ""
-        final_response = get_response_from_gemini(
-            user_prompt, gemini_files, config["model_name"], generation_config
-        )
-    else:
-        final_response = "由於所有檔案都上傳失敗，無法生成回應。"
-        print("\n" + final_response)
-
-    print("\n===== Gemini 的回應 =====")
-    print(final_response)
-    print("==========================")
-    save_response(final_response, RESPONSE_PATH)
-
-
-def main2(config, prompt_files, uploaded_files):
+def main(config, prompt_files, uploaded_files):
     # 1. 首先，建立一個對話 Session 的實例
     #   這個實例在整個對話中只需要建立一次。
     generation_config = genai.types.GenerationConfig(
@@ -216,83 +207,54 @@ def main2(config, prompt_files, uploaded_files):
     )
 
     chat_session = GeminiChatSession(
-        model_name=config["model_name"], 
-        generation_config=generation_config
+        model_name=config["model_name"], generation_config=generation_config
     )
 
     # 上傳檔案到google Gemini AI Studio
-    uploaded_files = chat_session.upload_files(Run_Dir_PATH, uploaded_files)
+    uploaded_files = chat_session.upload_files(uploaded_files)
 
     # 清空
     save_response("", RESPONSE_PATH)
 
     # 讀取 files_to_prompt 裡面的內容並且 print 出來
     for prompt_file in prompt_files:
-        prompt_path = os.path.join(Run_Dir_PATH, prompt_file)
-        prompt_content = read_prompt(prompt_path)
-        print(f"\n--- {prompt_file} ---\n{prompt_content}\n")
+        prompt_content = read_prompt(prompt_file)
+        # print(f"\n--- {prompt_file} ---\n{prompt_content}\n")
         response = chat_session.send_message(
             prompt=prompt_content, uploaded_files=uploaded_files
         )
-        print(f"Gemini: {response}")
+        # print(f"Gemini: {response}")
         save_response(response, RESPONSE_PATH, "a")
         save_response("\n\n\n", RESPONSE_PATH, "a")
 
+    # 取得當下時間字串
+    now_str = datetime.now().strftime("%Y%m%d_%H%M%S")  # 例如 20250728_145051
+    # 組合資料夾名稱
+    copy_response_path = os.path.join(
+        Run_Dir_PATH, ResponseFiles_Dir, f"response_{now_str}.txt"
+    )
+    # 建立資料夾
+    os.makedirs(os.path.dirname(copy_response_path), exist_ok=True)
 
-#     # 2. 進行第一輪對話
-#     prompt1 = prompt
-#     # print(f"使用者: {prompt1}")
-#     response1 = chat_session.send_message(prompt=prompt1, uploaded_files=uploaded_files)
-#     # print(f"Gemini: {response1}")
+    src = RESPONSE_PATH
+    dst = copy_response_path
+    shutil.copy2(src, dst)  # 複製檔案（包含內容、權限、metadata）
 
-#     save_response(response1, RESPONSE_PATH, "a")
-
-#     # 3. 進行第二輪對話
-#     #    模型會因為 chat_session 保存了歷史紀錄，而記得第一輪的內容。
-#     prompt2 = """接續之前劇情產生後續
-# 巨龍之血發揮作用，李偉的身體產生巨大變化
-# 身高暴漲到超過210cm，滿身肌肉彷彿體內有用不完的精力，下體的長度達到了驚人的五十釐米。粗度更是突破了二十釐米
-# 陳欣用【魅魔之眼】控制李偉，操縱李偉的行為，並且命令李偉不能射精，直到陳欣許可
-# 陳欣主動使用李偉的身體盡情洩慾
-# 運動到一半，陳欣覺得不夠刺激，命令李偉反過來蹂躪陳欣
-# 李偉發揮超人的力量，狠狠對待陳欣，陳欣到達史無前例的快感，
-# 不知過了多久，陳欣終於命令李偉可以射
-# 李偉噴出超乎常理的精液量，陳欣全數吸收
-# 李偉全身虛脫躺在床上不能動，變回原本身高，身體肌肉盡數萎縮，
-# 陳欣好心餵給李偉一瓶強效精力劑，並用【魅魔之眼】命令李偉忘記今晚的事
-# 吸取精液後的陳欣，感受到體內的洶湧脈動，是快速成長的前兆
-# 回到公寓，晚上身體快速成長，成長帶來痛苦但又另一種的快感
-# 隔天醒來，看成長後的身體，測量數據，發現成長得超乎預期，事先準備的內衣(HH罩杯)都穿不下了
-# 本章結束
-
-# 身體數據
-# 成長前
-# 陳欣身高:282cm，胸圍162cm(FF罩杯)，腰圍63cm，臀圍142cm，腿長196cm
-# 成長後
-# 陳欣身高:303cm，胸圍171cm(JJ罩杯)，腰圍63cm，臀圍145cm，腿長211cm"""
-
-#     prompt2 = prompt2
-#     # print(f"\n使用者: {prompt2}")
-#     response2 = chat_session.send_message(prompt=prompt2, uploaded_files=uploaded_files)
-#     # print(f"Gemini: {response2}")
-
-#     save_response("\n\n\n接續\n\n\n", RESPONSE_PATH, "a")
-#     save_response(response2, RESPONSE_PATH, "a")
-
-    if False:
-        # 4. (可選) 隨時可以檢查完整的對話歷史
-        print("\n--- 對話歷史紀錄 ---")
-        for message in chat_session.history:
-            # message.parts[0] 可能包含 text 或 file_data
-            text_part = (
-                message.parts[0].text if hasattr(message.parts[0], "text") else "[檔案]"
-            )
-            print(f"[{message.role.capitalize()}]: {text_part}")
+    # 4. (可選) 隨時可以檢查完整的對話歷史
+    print("\n--- 對話歷史紀錄 ---")
+    for message in chat_session.history:
+        # message.parts[0] 可能包含 text 或 file_data
+        text_part = (
+            message.parts[0].text if hasattr(message.parts[0], "text") else "[檔案]"
+        )
+        print(f"\n[{message.role.capitalize()}]: {text_part}\n")
 
 
 # --- 主執行流程 ---
 if __name__ == "__main__":
+    # 建立範例檔案
     create_example_files()
+
     config = load_config_from_xml(CONFIG_PATH)
     if not config:
         exit()
@@ -304,15 +266,14 @@ if __name__ == "__main__":
         print(f"設定 API 金鑰時發生錯誤：{e}")
         exit()
 
-    files_to_upload = read_file_list(os.path.join(Run_Dir_PATH, FILE_LIST_PATH))
-    files_to_prompt = read_file_list(os.path.join(Run_Dir_PATH, PROMPT_PATH))
+    files_to_upload = read_UploaderFile_list(
+        os.path.join(Run_Dir_PATH, UploadFiles_Dir)
+    )
+    files_to_prompt = read_PromptFile_list(os.path.join(Run_Dir_PATH, PromptFiles_Dir))
 
     if not files_to_upload or not files_to_prompt:
         print("\n檔案清單或指令檔為空或讀取失敗，程式終止。")
         exit()
-    # print(f"  - 您的問題：\n---\n{user_prompt}\n---")
 
     # 開始執行上傳行為
-    # main1()
-
-    main2(config, files_to_prompt, files_to_upload)
+    main(config, files_to_prompt, files_to_upload)

@@ -1,0 +1,2 @@
+google-generativeai==2.25.1
+google-api-core==0.8.5
