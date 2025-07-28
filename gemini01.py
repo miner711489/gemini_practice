@@ -19,7 +19,7 @@ PROMPT_PATH = "promptList.txt"
 RESPONSE_PATH = "response.txt"
 
 # 要執行的資料夾名稱
-Run_Dir_PATH = "福利姬"
+Run_Dir_PATH = "example"
 # 存放要上傳檔案資料夾名稱
 UploadFiles_Dir = "UploadFiles"
 # 存放要問Gmeini的Prompt檔的資料夾名稱
@@ -228,10 +228,11 @@ def main(config, prompt_files, uploaded_files):
         save_response(response, RESPONSE_PATH, "a")
         save_response("\n\n\n", RESPONSE_PATH, "a")
 
-        # 暫停 60 秒，避免token爆掉
-        # print("程式即將暫停 60 秒...")
-        print(f"\n暫停 60 秒...")
-        time.sleep(60)
+        if prompt_file != prompt_files[-1]:
+            # 暫停 60 秒，避免token爆掉
+            # print("程式即將暫停 60 秒...")
+            print(f"\n暫停 60 秒...")
+            time.sleep(60)
 
     # 取得當下時間字串
     now_str = datetime.now().strftime("%Y%m%d_%H%M%S")  # 例如 20250728_145051
@@ -245,6 +246,7 @@ def main(config, prompt_files, uploaded_files):
     src = RESPONSE_PATH
     dst = copy_response_path
     shutil.copy2(src, dst)  # 複製檔案（包含內容、權限、metadata）
+    print(f"已產生response_{now_str}.txt...")
 
     # 4. (可選) 隨時可以檢查完整的對話歷史
     if False:

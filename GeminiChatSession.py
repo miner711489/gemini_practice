@@ -94,9 +94,8 @@ class GeminiChatSession:
         if not prompt and not uploaded_files:
             return "錯誤：請提供文字提示或上傳檔案。"
 
-        current_datetime = datetime.now()
-        formatted_time = current_datetime.strftime("%Y/%m/%d %H:%M:%S")
-        print(f"\n正在向 Gemini 傳送訊息，{formatted_time}...")
+        current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        print(f"\n正在向 Gemini 傳送訊息，{current_datetime}...")
         try:
             # 對於多輪對話，我們使用 chat.send_message() 而非 model.generate_content()
             response = self.chat.send_message(
@@ -104,6 +103,8 @@ class GeminiChatSession:
                 generation_config=self.generation_config,
                 # ,safety_settings
             )
+            current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+            print(f"\n Gemini 已回傳訊息，{current_datetime}...")
             return response.text
         except exceptions.GoogleAPICallError as e:
             return f"呼叫 Google API 時發生錯誤：{e}"

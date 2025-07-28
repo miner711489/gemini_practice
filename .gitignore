@@ -126,8 +126,10 @@ dmypy.json
 .DS_Store
 
 config.xml
+response.txt
 
 example/
+小說/
 
 ven/
 
