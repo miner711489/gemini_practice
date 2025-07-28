@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import time
 from datetime import datetime
 import xml.etree.ElementTree as ET
 import google.generativeai as genai
@@ -189,11 +190,10 @@ def read_prompt(path):
 
 def save_response(content, path, mode="w"):
     """將回應內容儲存到指定檔案。"""
-    print(f"\n正在將回應儲存至 {path}...")
     try:
         with open(path, mode, encoding="utf-8") as f:
             f.write(content)
-        print("  - 儲存成功！")
+        # print("  - 儲存成功！")
     except IOError as e:
         print(f"  - 儲存檔案時發生錯誤：{e}")
 
@@ -224,8 +224,14 @@ def main(config, prompt_files, uploaded_files):
             prompt=prompt_content, uploaded_files=uploaded_files
         )
         # print(f"Gemini: {response}")
+        print(f"\n正在將回應儲存至 {RESPONSE_PATH}...")
         save_response(response, RESPONSE_PATH, "a")
         save_response("\n\n\n", RESPONSE_PATH, "a")
+
+        # 暫停 60 秒，避免token爆掉
+        # print("程式即將暫停 60 秒...")
+        print(f"\n暫停 60 秒...")
+        time.sleep(60)
 
     # 取得當下時間字串
     now_str = datetime.now().strftime("%Y%m%d_%H%M%S")  # 例如 20250728_145051
@@ -241,13 +247,14 @@ def main(config, prompt_files, uploaded_files):
     shutil.copy2(src, dst)  # 複製檔案（包含內容、權限、metadata）
 
     # 4. (可選) 隨時可以檢查完整的對話歷史
-    print("\n--- 對話歷史紀錄 ---")
-    for message in chat_session.history:
-        # message.parts[0] 可能包含 text 或 file_data
-        text_part = (
-            message.parts[0].text if hasattr(message.parts[0], "text") else "[檔案]"
-        )
-        print(f"\n[{message.role.capitalize()}]: {text_part}\n")
+    if False:
+        print("\n--- 對話歷史紀錄 ---")
+        for message in chat_session.history:
+            # message.parts[0] 可能包含 text 或 file_data
+            text_part = (
+                message.parts[0].text if hasattr(message.parts[0], "text") else "[檔案]"
+            )
+            print(f"\n[{message.role.capitalize()}]: {text_part}\n")
 
 
 # --- 主執行流程 ---

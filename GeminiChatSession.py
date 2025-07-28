@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import google.generativeai as genai
 from google.api_core import exceptions
 from typing import List, Optional, Dict, Any
@@ -28,7 +29,14 @@ class GeminiChatSession:
             initial_history (Optional[List]): 用於開始對話的初始歷史紀錄。
         """
 
-        system_instruction_text = """
+        system_instruction_text = """小說產生原則
+沒有字數限制，但是要在保證文章品質的情況下盡可能的輸出更多文字與延長篇幅，你需要寫得非常詳細，且避免重複和無聊内容。
+盡可能的像人與人之間的對話，包含對話和聲音描寫，描寫心理變化和感受，使用通俗易懂的語言，且要有一定對話內容與連續性。
+角色之間的互動更具臨場感。若角色之間有衝突或情感波動，務必鋪陳心理變化與反應過程，讓讀者能感受到角色內心的拉扯與真實性。
+避免過度文藝化表達，使用直白具體的描述方式，甚至允許部分粗俗描述方式。
+場景要夠震撼，多細節才能顯得真實，給人身臨其境的感受。
+故事要符合邏輯。所有內容融為一體,不分點輸出,但可以分段，不要自作主張地分章節，我需要連續的文章，上下的對話可以貫通的那種。
+我需要你始終用繁體中文與我對話
         """
 
         # if api_key:
@@ -86,7 +94,9 @@ class GeminiChatSession:
         if not prompt and not uploaded_files:
             return "錯誤：請提供文字提示或上傳檔案。"
 
-        print(f"\n正在向 Gemini 傳送訊息...")
+        current_datetime = datetime.now()
+        formatted_time = current_datetime.strftime("%Y/%m/%d %H:%M:%S")
+        print(f"\n正在向 Gemini 傳送訊息，{formatted_time}...")
         try:
             # 對於多輪對話，我們使用 chat.send_message() 而非 model.generate_content()
             response = self.chat.send_message(
