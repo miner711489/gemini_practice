@@ -19,7 +19,7 @@ PROMPT_PATH = "promptList.txt"
 RESPONSE_PATH = "response.txt"
 
 # 要執行的資料夾名稱
-Run_Dir_PATH = "example"
+Run_Dir_PATH = "小說"
 # 存放要上傳檔案資料夾名稱
 UploadFiles_Dir = "UploadFiles"
 # 存放要問Gmeini的Prompt檔的資料夾名稱
@@ -217,6 +217,8 @@ def main(config, prompt_files, uploaded_files):
     save_response("", RESPONSE_PATH)
 
     # 讀取 files_to_prompt 裡面的內容並且 print 出來
+    start_time = time.perf_counter()
+    cnt = 0
     for prompt_file in prompt_files:
         prompt_content = read_prompt(prompt_file)
         # print(f"\n--- {prompt_file} ---\n{prompt_content}\n")
@@ -226,13 +228,19 @@ def main(config, prompt_files, uploaded_files):
         # print(f"Gemini: {response}")
         print(f"\n正在將回應儲存至 {RESPONSE_PATH}...")
         save_response(response, RESPONSE_PATH, "a")
-        save_response("\n\n\n", RESPONSE_PATH, "a")
-
+        save_response("\n\n====================回應分隔線====================\n\n", RESPONSE_PATH, "a")
+        cnt = cnt + 1
         if prompt_file != prompt_files[-1]:
             # 暫停 60 秒，避免token爆掉
             # print("程式即將暫停 60 秒...")
-            print(f"\n暫停 60 秒...")
-            time.sleep(60)
+            if cnt % 2 == 0:
+                print(f"\n暫停 60 秒...")
+                time.sleep(60)
+
+    # 計算時間差
+    end_time = time.perf_counter()
+    execution_time = end_time - start_time
+    print(f"\n執行時間共{execution_time:.2f}秒...")
 
     # 取得當下時間字串
     now_str = datetime.now().strftime("%Y%m%d_%H%M%S")  # 例如 20250728_145051
@@ -280,7 +288,7 @@ if __name__ == "__main__":
     )
     files_to_prompt = read_PromptFile_list(os.path.join(Run_Dir_PATH, PromptFiles_Dir))
 
-    if not files_to_upload or not files_to_prompt:
+    if not files_to_upload and not files_to_prompt:
         print("\n檔案清單或指令檔為空或讀取失敗，程式終止。")
         exit()
 

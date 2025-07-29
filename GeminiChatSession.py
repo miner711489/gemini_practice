@@ -1,4 +1,6 @@
 import os
+import time
+import random
 from datetime import datetime
 import google.generativeai as genai
 from google.api_core import exceptions
@@ -93,23 +95,35 @@ class GeminiChatSession:
 
         if not prompt and not uploaded_files:
             return "錯誤：請提供文字提示或上傳檔案。"
+        
+        max_retries = 5
+        base_delay = 2  # 基礎延遲時間（秒）
 
-        current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-        print(f"\n正在向 Gemini 傳送訊息，{current_datetime}...")
-        try:
-            # 對於多輪對話，我們使用 chat.send_message() 而非 model.generate_content()
-            response = self.chat.send_message(
-                request_content,
-                generation_config=self.generation_config,
-                # ,safety_settings
-            )
+        for attempt in range(max_retries):
             current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-            print(f"\n Gemini 已回傳訊息，{current_datetime}...")
-            return response.text
-        except exceptions.GoogleAPICallError as e:
-            return f"呼叫 Google API 時發生錯誤：{e}"
-        except Exception as e:
-            return f"生成回應時發生未預期的錯誤：{e}"
+            print(f"\n正在向 Gemini 傳送訊息，{current_datetime}...")
+            try:
+                # 對於多輪對話，我們使用 chat.send_message() 而非 model.generate_content()
+                response = self.chat.send_message(
+                    request_content,
+                    generation_config=self.generation_config,
+                    # ,safety_settings
+                )
+                current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                print(f"\n Gemini 已回傳訊息，{current_datetime}...")
+                return response.text
+            except (exceptions.InternalServerError, exceptions.DeadlineExceeded) as e:
+                print(f"呼叫 API 時發生可重試錯誤 (第 {attempt + 1} 次失敗): {e}")
+                if attempt < max_retries - 1:
+                    # 指數退避邏輯：等待時間 = 基礎延遲 * 2^嘗試次數 + 一個隨機的毫秒數
+                    wait_time = (base_delay ** attempt) + random.uniform(0, 1)
+                    print(f"將在 {wait_time:.2f} 秒後重試...")
+                    time.sleep(wait_time)
+                else:
+                    print("已達到最大重試次數，放棄操作。")
+                    return f"呼叫 Google API 失敗，已重試 {max_retries} 次後放棄。最後錯誤：{e}"
+            except Exception as e:
+                return f"生成回應時發生未預期的錯誤：{e}"
 
     @property
     def history(self) -> List:
