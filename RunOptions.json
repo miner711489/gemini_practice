@@ -1,45 +1,27 @@
 {
-  "run_id": "1",
+  "run_id": "3",
   "說明": "先定義裡面所有屬性都是小寫，並且用_連接",
   "options": [
     {
-      "id": 1,
+      "id": "1",
       "name": "點讚少女_路線1",
-      "desc": "",
-      "uploader_files": {
-        "files": ["點讚少女.txt"]
-      },
-      "prompt_files": {
-        "註解": "這裡面的txt檔，紀錄要下的指令",
-        "files": ["prompt1.txt", "prompt2.txt", "prompt3.txt"]
-      },
       "dir": "點讚少女_路線1",
-      "dir註解": "上傳的檔案要放在這個目錄下，執行的時候去抓，未來在規畫怎麼自動命名資料夾"
+      "uploader_files": ["點讚少女.txt"],
+      "prompt_files": ["prompt1.txt", "prompt2.txt", "prompt3.txt"]
     },
     {
-      "id": 2,
+      "id": "2",
       "name": "轉生成為福利姬_路線1",
-      "desc": "",
-      "uploader_files": {
-        "files": ["轉生成為福利姬.txt"]
-      },
-      "prompt_files": {
-        "files": ["prompt1.txt", "prompt2.txt", "prompt3.txt"]
-      },
-      "dir": "轉生成為福利姬_路線1"
+      "dir": "轉生成為福利姬_路線1",
+      "uploader_files": ["轉生成為福利姬.txt"],
+      "prompt_files": ["prompt1.txt", "prompt2.txt"]
     },
     {
-      "id": 3,
-      "name": "長得太快的童星",
-      "desc": "",
-      "uploader_files": {
-        "dir": "dir",
-        "files": ["長得太快的童星.txt"]
-      },
-      "prompt_files": {
-        "dir": "dir",
-        "files": ["prompt1.txt"]
-      }
+      "id": "3",
+      "name": "猶予時間",
+      "dir": "猶予時間",
+      "uploader_files": ["猶予時間.txt"],
+      "prompt_files": ["prompt1.txt", "prompt2.txt"]
     }
   ]
 }

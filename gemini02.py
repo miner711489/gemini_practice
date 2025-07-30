@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 import google.generativeai as genai
 from google.api_core import exceptions
 from GeminiChatSession import GeminiChatSession
+import json
 
 
 # --- 檔案名稱設定 ---
@@ -21,7 +22,7 @@ PROMPT_PATH = "promptList.txt"
 RESPONSE_PATH = "response.txt"
 
 # 要執行的資料夾名稱
-Run_Dir_PATH = "小說"
+Run_Dir_PATH = "小說2"
 # 存放要上傳檔案資料夾名稱
 UploadFiles_Dir = "UploadFiles"
 # 存放要問Gmeini的Prompt檔的資料夾名稱
@@ -89,7 +90,7 @@ def save_response(content, path, mode="w"):
         print(f"  - 儲存檔案時發生錯誤：{e}")
 
 
-def main(prompt_files, uploaded_files):
+def main(JsonData, prompt_files, uploaded_files):
     # 1. 首先，建立一個對話 Session 的實例
     #   這個實例在整個對話中只需要建立一次。
     generation_config = genai.types.GenerationConfig(
@@ -139,9 +140,10 @@ def main(prompt_files, uploaded_files):
 
     # 取得當下時間字串
     now_str = datetime.now().strftime("%Y%m%d_%H%M%S")  # 例如 20250728_145051
+    dir = JsonData["dir"]
     # 組合資料夾名稱
     copy_response_path = os.path.join(
-        Run_Dir_PATH, ResponseFiles_Dir, f"response_{now_str}.txt"
+        Run_Dir_PATH, dir, ResponseFiles_Dir, f"response_{now_str}.txt"
     )
     # 建立資料夾
     os.makedirs(os.path.dirname(copy_response_path), exist_ok=True)
@@ -173,14 +175,55 @@ if __name__ == "__main__":
         print(f"設定 API 金鑰時發生錯誤：{e}")
         exit()
 
-    files_to_upload = read_UploaderFile_list(
-        os.path.join(Run_Dir_PATH, UploadFiles_Dir)
-    )
-    files_to_prompt = read_PromptFile_list(os.path.join(Run_Dir_PATH, PromptFiles_Dir))
+    json_file_path = "RunOptions.json"
+    if not os.path.exists(json_file_path):
+        print(f"{json_file_path} 不存在")
+        exit()
+
+    with open(json_file_path, "r", encoding="utf-8") as file:
+        run_options = json.load(file)
+
+    run_id = run_options["run_id"]
+    options = run_options["options"]
+    selected_option = next((opt for opt in options if opt.get("id") == run_id), None)
+
+    # for option in options:
+    #     print(f"選項 ID: {option['id']}, 名稱: {option['name']}, 描述")
+
+    dir = selected_option["dir"]
+    # print(f"{dir}")
+
+    uploader_files = selected_option["uploader_files"]
+    # print(f"{uploader_files}")
+
+    prompt_files = selected_option["prompt_files"]
+
+    # print(f"{prompt_files}")
+    # for p_file in prompt_files:
+    #     print(f"{p_file}")
+
+    files_to_upload = []
+    for upload_file in uploader_files:
+        files_to_upload.append(os.path.join(Run_Dir_PATH, dir, upload_file))
+
+    # print("----------------")
+    # print(f"{files_to_upload}")
+
+    # files_to_upload = read_UploaderFile_list(
+    #     os.path.join(Run_Dir_PATH,dir, UploadFiles_Dir)
+    # )
+
+    files_to_prompt = []
+    # files_to_prompt = read_PromptFile_list(os.path.join(Run_Dir_PATH, PromptFiles_Dir))
+    for p_file in prompt_files:
+        files_to_prompt.append(os.path.join(Run_Dir_PATH, dir, p_file))
+    # print("----------------")
+    # print(f"{files_to_prompt}")
+    # exit()
 
     if not files_to_upload and not files_to_prompt:
         print("\n檔案清單或指令檔為空或讀取失敗，程式終止。")
         exit()
 
     # 開始執行上傳行為
-    main(files_to_prompt, files_to_upload)
+    main(selected_option, files_to_prompt, files_to_upload)
