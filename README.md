@@ -46,3 +46,7 @@ pipreqs ./ --force
 ./ 代表當前目錄（你可以換成你的專案資料夾路徑）。
 --force 會覆蓋原本的 requirements.txt。
 產生的 requirements.txt 就只會列出你專案程式碼有 import 到的套件！
+
+# 未來預想：
+1.使用flask做出畫面
+2.使用json檔，來區分個小說的各路線，要有維護json檔功能
