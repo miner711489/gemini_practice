@@ -11,67 +11,16 @@ from google.api_core import exceptions
 from GeminiChatSession import GeminiChatSession
 import json
 
-
-# --- 檔案名稱設定 ---
-CONFIG_PATH = "config.xml"
-# 要上傳的檔案清單
-FILE_LIST_PATH = "updateFile.txt"
-# 要執行的prompt清單
-PROMPT_PATH = "promptList.txt"
 # 要儲存回應的檔案
 RESPONSE_PATH = "response.txt"
 
 # 要執行的資料夾名稱
 Run_Dir_PATH = "小說2"
-# 存放要上傳檔案資料夾名稱
-UploadFiles_Dir = "UploadFiles"
-# 存放要問Gmeini的Prompt檔的資料夾名稱
-PromptFiles_Dir = "Prompts"
 # 存放每次問Gmeini的reponse的資料夾名稱
 ResponseFiles_Dir = "Response"
 
-env_filename = ".env"
-
-
-def read_UploaderFile_list(path):
-    read_file_list = ["test.txt"]
-    """從指定路徑讀取檔案清單。"""
-    print(f"\n正在從 {path} 讀取要上傳的檔案清單...")
-    uploader_Files = []
-    for filename in os.listdir(path):
-        uploader_Files.append(os.path.join(path, filename))
-
-    print("讀取完畢...")
-    return uploader_Files
-
-
-def read_PromptFile_list(path):
-    read_file_list = []
-    """從指定目錄讀取符合 Prompt數字.txt 格式的檔案，並依數字排序。"""
-    print(f"\n正在從 {path} 讀取 Prompt 檔案清單...")
-    prompt_files = []
-    pattern = re.compile(r"^prompt(\d+)\.txt$")
-
-    # 遍歷目錄
-    for filename in os.listdir(path):
-        match = pattern.match(filename)
-        if match:
-            # 取出數字作為排序依據
-            num = int(match.group(1))
-            prompt_files.append((num, filename))
-
-    # 依數字排序
-    prompt_files.sort(key=lambda x: x[0])
-
-    # 只回傳檔名清單（或可加完整路徑）
-    sorted_filenames = [os.path.join(path, filename) for _, filename in prompt_files]
-    print(f"  - 找到 {len(sorted_filenames)} 個 Prompt 檔案。")
-    return sorted_filenames
-
-
 def read_prompt(path):
     """從指定路徑讀取 prompt 內容。"""
-    # print(f"\n正在從 {path} 讀取您的問題...")
     try:
         with open(path, "r", encoding="utf-8") as f:
             return f.read().strip()
@@ -103,17 +52,18 @@ def main(JsonData, prompt_files, uploaded_files):
     )
 
     # 上傳檔案到google Gemini AI Studio
-    uploaded_files = chat_session.upload_files(uploaded_files)
+    uploaded_files =chat_session.upload_files(uploaded_files)
 
     # 清空
     save_response("", RESPONSE_PATH)
 
-    # 讀取 files_to_prompt 裡面的內容並且 print 出來
     start_time = time.perf_counter()
     cnt = 0
     for prompt_file in prompt_files:
+        # 讀取 files_to_prompt 裡面的內容並且 print 出來
         prompt_content = read_prompt(prompt_file)
         # print(f"\n--- {prompt_file} ---\n{prompt_content}\n")
+
         response = chat_session.send_message(
             prompt=prompt_content, uploaded_files=uploaded_files
         )
@@ -175,6 +125,7 @@ if __name__ == "__main__":
         print(f"設定 API 金鑰時發生錯誤：{e}")
         exit()
 
+    # 讀取檔案設定json檔
     json_file_path = "RunOptions.json"
     if not os.path.exists(json_file_path):
         print(f"{json_file_path} 不存在")
@@ -187,39 +138,21 @@ if __name__ == "__main__":
     options = run_options["options"]
     selected_option = next((opt for opt in options if opt.get("id") == run_id), None)
 
-    # for option in options:
-    #     print(f"選項 ID: {option['id']}, 名稱: {option['name']}, 描述")
+    if selected_option is None:
+        print("錯誤：找不到對應的選項，請檢查 run_id 是否正確。")
+        exit()
 
     dir = selected_option["dir"]
-    # print(f"{dir}")
-
     uploader_files = selected_option["uploader_files"]
-    # print(f"{uploader_files}")
-
     prompt_files = selected_option["prompt_files"]
-
-    # print(f"{prompt_files}")
-    # for p_file in prompt_files:
-    #     print(f"{p_file}")
 
     files_to_upload = []
     for upload_file in uploader_files:
         files_to_upload.append(os.path.join(Run_Dir_PATH, dir, upload_file))
 
-    # print("----------------")
-    # print(f"{files_to_upload}")
-
-    # files_to_upload = read_UploaderFile_list(
-    #     os.path.join(Run_Dir_PATH,dir, UploadFiles_Dir)
-    # )
-
     files_to_prompt = []
-    # files_to_prompt = read_PromptFile_list(os.path.join(Run_Dir_PATH, PromptFiles_Dir))
     for p_file in prompt_files:
         files_to_prompt.append(os.path.join(Run_Dir_PATH, dir, p_file))
-    # print("----------------")
-    # print(f"{files_to_prompt}")
-    # exit()
 
     if not files_to_upload and not files_to_prompt:
         print("\n檔案清單或指令檔為空或讀取失敗，程式終止。")

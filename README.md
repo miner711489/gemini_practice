@@ -50,3 +50,6 @@ pipreqs ./ --force
 # 未來預想：
 1.使用flask做出畫面
 2.使用json檔，來區分個小說的各路線，要有維護json檔功能
+
+
+```pip install Flask```
