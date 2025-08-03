@@ -63,9 +63,11 @@ def gemini_task_generator(json_data):
     這是一個生成器函式，它執行主要的任務邏輯，
     並使用 'yield' 將進度訊息即時傳送到前端。
     """
-    def stream_log(message_type, content):
+    def stream_log(message_type, content, showlog = True):
         """輔助函式，用於格式化並傳送串流訊息"""
         log_entry = json.dumps({"type": message_type, "content": content})
+        if showlog: 
+            print(content)
         return f"data: {log_entry}\n\n"
 
     try:
@@ -90,7 +92,6 @@ def gemini_task_generator(json_data):
         chat_session = GeminiChatSession(
             model_name=config.MODEL_NAME, generation_config=generation_config
         )
-        yield stream_log("status", "正在以模擬模式運行。")
 
         # --- 3. 上傳檔案 ---
         if files_to_upload:
@@ -117,7 +118,7 @@ def gemini_task_generator(json_data):
             yield stream_log("status", "正在發送訊息至 Gemini...")
             response = chat_session.send_message(prompt=prompt_content, uploaded_files=uploaded_files_result)
             
-            yield stream_log("data", response) # 將單次回應即時傳到前端
+            yield stream_log("data", response,False) # 將單次回應即時傳到前端
             full_response_content += response + "\n\n====================回應分隔線====================\n\n"
 
             if i < total_prompts - 1 and (i + 1) % 2 == 0:

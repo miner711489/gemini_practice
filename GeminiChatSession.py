@@ -15,12 +15,17 @@ class GeminiChatSession:
     一個封裝 Gemini 多輪對話功能的類別。
     它會維護一個對話歷史，讓模型能夠記住之前的互動。
     """
+    
+    def printLog(self, obj: Any, mustShow: bool = False):
+        showLog = False
+        if mustShow or showLog:
+            print(obj)
 
     def __init__(
         self,
         model_name: str,
         generation_config: Optional[genai.types.GenerationConfig] = None,
-        initial_history: Optional[List] = None,
+        initial_history: Optional[List] = None
     ):
         """
         初始化對話 session。
@@ -44,7 +49,7 @@ class GeminiChatSession:
         # if api_key:
         #     genai.configure(api_key=api_key)
 
-        print(f"正在初始化模型 '{model_name}'...")
+        self.printLog(f"正在初始化模型 '{model_name}'...")
         self.model = genai.GenerativeModel(
             model_name=model_name,
             system_instruction=system_instruction_text,
@@ -53,7 +58,7 @@ class GeminiChatSession:
         self.generation_config = generation_config
         # 使用 model.start_chat() 來建立一個具有狀態的對話物件
         self.chat = self.model.start_chat(history=initial_history or [])
-        print("對話 session 已成功啟動。")
+        self.printLog("對話 session 已成功啟動。")
 
     def upload_files(self, file_paths: List[str]) -> List[Any]:
         """
@@ -101,7 +106,7 @@ class GeminiChatSession:
 
         for attempt in range(max_retries):
             current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-            print(f"\n正在向 Gemini 傳送訊息，{current_datetime}...")
+            self.printLog(f"\n正在向 Gemini 傳送訊息，{current_datetime}...")
             try:
                 # 對於多輪對話，我們使用 chat.send_message() 而非 model.generate_content()
                 response = self.chat.send_message(
@@ -110,17 +115,17 @@ class GeminiChatSession:
                     # ,safety_settings
                 )
                 current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-                print(f"\n Gemini 已回傳訊息，{current_datetime}...")
+                self.printLog(f"\nGemini 已回傳訊息，{current_datetime}...")
                 return response.text
             except (exceptions.InternalServerError, exceptions.DeadlineExceeded) as e:
-                print(f"呼叫 API 時發生可重試錯誤 (第 {attempt + 1} 次失敗): {e}")
+                self.printLog(f"呼叫 API 時發生可重試錯誤 (第 {attempt + 1} 次失敗): {e}", True)
                 if attempt < max_retries - 1:
                     # 指數退避邏輯：等待時間 = 基礎延遲 * 2^嘗試次數 + 一個隨機的毫秒數
                     wait_time = (base_delay ** attempt) + random.uniform(0, 1)
-                    print(f"將在 {wait_time:.2f} 秒後重試...")
+                    self.printLog(f"將在 {wait_time:.2f} 秒後重試...", True)
                     time.sleep(wait_time)
                 else:
-                    print("已達到最大重試次數，放棄操作。")
+                    self.printLog("已達到最大重試次數，放棄操作。",True)
                     return f"呼叫 Google API 失敗，已重試 {max_retries} 次後放棄。最後錯誤：{e}"
             except Exception as e:
                 return f"生成回應時發生未預期的錯誤：{e}"

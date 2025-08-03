@@ -40,7 +40,7 @@
                     <label for="run_id_select" class="block mb-2 text-sm font-medium text-slate-300">選擇執行選項:</label>
                     <select id="run_id_select" name="run_id" class="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 p-2.5">
                         {% for option in options %}
-                            <option value="{{ option.id }}">{{ option.name }} (ID: {{ option.id }})</option>
+                            <option value="{{ option.id }}">{{ option.name }} (ID: {{ option.id }}) (option.prompt_files: {{option.prompt_files}})</option>
                         {% endfor %}
                     </select>
                 </div>
