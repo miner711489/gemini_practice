@@ -53,3 +53,4 @@ pipreqs ./ --force
 
 
 ```pip install Flask```
+```pip install opencc```

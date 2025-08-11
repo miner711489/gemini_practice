@@ -2,3 +2,4 @@ google-generativeai
 google-api-core
 python-dotenv
 Flask
+OpenCC
