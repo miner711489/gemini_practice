@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>製作自訂片語</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f2f5;
+        margin: 0;
+        padding: 20px;
+      }
+      .container {
+        max-width: 960px;
+        margin: auto;
+        background-color: #fff;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+      .header {
+        display: flex;
+        background-color: #007bff;
+        color: #fff;
+        padding: 10px 0;
+        border-radius: 5px 5px 0 0;
+      }
+      .header-item {
+        flex-grow: 1;
+        text-align: center;
+        padding: 10px;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        font-weight: bold;
+      }
+      .form-group input[type="text"] {
+        width: 100%;
+        padding: 8px;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .table-container {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 20px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+      }
+      th {
+        background-color: #f8f9fa;
+      }
+      .table-header {
+        background-color: #e9ecef;
+        display: flex;
+        align-items: center;
+        padding: 10px;
+      }
+      .table-header .label {
+        flex-grow: 1;
+      }
+      .add-button {
+        background-color: #28a745;
+        color: #fff;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .table-body {
+        /* 讓主體可以滾動 */
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .table-row {
+        display: flex;
+        align-items: center;
+        padding: 5px 10px;
+      }
+      .table-row input,
+      .table-row textarea {
+        border: 1px solid #ccc;
+        padding: 5px;
+        border-radius: 3px;
+      }
+      .table-row .seq {
+        width: 50px;
+        text-align: center;
+      }
+      .table-row .code {
+        flex: 1;
+        margin-right: 10px;
+      }
+      .table-row .sort {
+        flex: 0.5;
+        margin-right: 10px;
+      }
+      .table-row .name {
+        flex: 2;
+      }
+      .delete-button {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-left: 10px;
+      }
+      .footer {
+        text-align: center;
+        padding: 20px;
+      }
+      .save-button,
+      .delete-all-button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 0 10px;
+      }
+      .save-button {
+        background-color: #007bff;
+        color: #fff;
+      }
+      .delete-all-button {
+        background-color: #dc3545;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="header-item">製作自訂片語</div>
+        <div class="header-item">與發文聯絡事項</div>
+      </div>
+
+      <div class="form-group">
+        <label for="group-name"><span>*</span>群組名稱</label>
+        <input type="text" id="group-name" placeholder="與發文聯絡事項" />
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 50px">序</th>
+              <th>代碼</th>
+              <th>排序</th>
+              <th>名傳</th>
+              <th style="width: 80px">
+                <button class="add-button" onclick="addNewRow()">新增</button>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="phrase-table-body">
+            <tr class="table-row">
+              <td>1</td>
+              <td><input type="text" value="0000000005" class="code" /></td>
+              <td><input type="text" value="" class="sort" /></td>
+              <td>
+                <textarea class="name">受文者與正本1對1分別列印</textarea>
+              </td>
+              <td>
+                <button class="delete-button" onclick="deleteRow(this)">
+                  刪除
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer">
+        <button class="save-button">儲存</button>
+        <button class="delete-all-button">刪除</button>
+      </div>
+    </div>
+
+    <script>
+      function addNewRow() {
+        const tableBody = document.getElementById("phrase-table-body");
+        const newRow = document.createElement("tr");
+        const rowCount = tableBody.rows.length + 1;
+        newRow.className = "table-row";
+        newRow.innerHTML = `
+            <td>${rowCount}</td>
+            <td><input type="text" class="code"></td>
+            <td><input type="text" class="sort"></td>
+            <td><textarea class="name"></textarea></td>
+            <td><button class="delete-button" onclick="deleteRow(this)">刪除</button></td>
+        `;
+        tableBody.appendChild(newRow);
+      }
+
+      function deleteRow(button) {
+        const row = button.parentNode.parentNode;
+        row.remove();
+        // 重新排序序號
+        reorderRows();
+      }
+
+      function reorderRows() {
+        const tableBody = document.getElementById("phrase-table-body");
+        const rows = tableBody.getElementsByTagName("tr");
+        for (let i = 0; i < rows.length; i++) {
+          rows[i].getElementsByTagName("td")[0].textContent = i + 1;
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,152 +1,190 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gemini 任務執行器</title>
-    <link href="https://cdn.tailwindcss.com"></script>
+    <script src="{{ url_for('static', filename='js/jquery.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dataTables.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.dataTables.min.css') }}">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        #log-container {
-            white-space: pre-wrap; /* 讓文字可以自動換行 */
-            word-wrap: break-word; /* 避免長字串撐破容器 */
-            background-color: #1E293B; /* slate-800 */
-            color: #F1F5F9; /* slate-100 */
-            border-radius: 0.5rem;
-            padding: 1rem;
-            height: 60vh;
-            overflow-y: auto;
-            font-family: 'Courier New', Courier, monospace;
-        }
-        .log-status { color: #67E8F9; } /* cyan-300 */
-        .log-error { color: #F87171; font-weight: bold; } /* red-400 */
-        .log-data { color: #E5E7EB; } /* gray-200 */
-        .log-done { color: #4ADE80; font-weight: bold; } /* green-400 */
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      #log-container {
+        white-space: pre-wrap; /* 讓文字可以自動換行 */
+        word-wrap: break-word; /* 避免長字串撐破容器 */
+        background-color: #1e293b; /* slate-800 */
+        color: #f1f5f9; /* slate-100 */
+        border-radius: 0.5rem;
+        padding: 1rem;
+        height: 60vh;
+        overflow-y: auto;
+        font-family: "Courier New", Courier, monospace;
+      }
+      .log-status {
+        color: #67e8f9;
+      } /* cyan-300 */
+      .log-error {
+        color: #f87171;
+        font-weight: bold;
+      } /* red-400 */
+      .log-data {
+        color: #e5e7eb;
+      } /* gray-200 */
+      .log-done {
+        color: #4ade80;
+        font-weight: bold;
+      } /* green-400 */
     </style>
-</head>
-<body class="bg-slate-900 text-white p-4 sm:p-8">
-
+  </head>
+  <body class="bg-slate-900 text-white p-4 sm:p-8">
     <div class="max-w-4xl mx-auto">
-        <header class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-cyan-400">Gemini 任務執行器</h1>
-            <p class="text-slate-400 mt-2">請選擇一個執行選項並開始任務。</p>
-        </header>
+      <header class="text-center mb-8">
+        <h1 class="text-3xl sm:text-4xl font-bold text-cyan-400">
+          Gemini 任務執行器
+        </h1>
+        <p class="text-slate-400 mt-2">請選擇一個執行選項並開始任務。</p>
+      </header>
 
-        <main>
-            <form id="run-form" class="bg-slate-800 p-6 rounded-lg shadow-lg mb-8 flex flex-col sm:flex-row items-center gap-4">
-                <div class="w-full sm:flex-grow">
-                    <label for="run_id_select" class="block mb-2 text-sm font-medium text-slate-300">選擇執行選項:</label>
-                    <select id="run_id_select" name="run_id" class="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 p-2.5">
-                        {% for option in options %}
-                            <option value="{{ option.id }}">{{ option.name }} (ID: {{ option.id }}) (option.prompt_files: {{option.prompt_files}})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" id="submit-btn" class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-700 focus:ring-4 focus:outline-none focus:ring-cyan-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors duration-300">
-                    開始執行
-                </button>
-            </form>
+      <main>
+        <form
+          id="run-form"
+          class="bg-slate-800 p-6 rounded-lg shadow-lg mb-8 flex flex-col sm:flex-row items-center gap-4"
+        >
+          <div class="container">
+            <h1>歡迎來到首頁</h1>
+            <a href="{{ url_for('detail') }}" class="styled-button"
+              >前往製作自訂片語</a
+            >
+          </div>
+          <div class="w-full sm:flex-grow">
+            <label
+              for="run_id_select"
+              class="block mb-2 text-sm font-medium text-slate-300"
+              >選擇執行選項:</label
+            >
+            <select
+              id="run_id_select"
+              name="run_id"
+              class="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 p-2.5"
+            >
+              {% for option in options %}
+              <option value="{{ option.id }}">
+                {{ option.name }} (ID: {{ option.id }}) (option.prompt_files:
+                {{option.prompt_files}})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button
+            type="submit"
+            id="submit-btn"
+            class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-700 focus:ring-4 focus:outline-none focus:ring-cyan-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center transition-colors duration-300"
+          >
+            開始執行
+          </button>
+        </form>
 
-            <div class="bg-slate-800 p-6 rounded-lg shadow-lg">
-                <h2 class="text-xl font-semibold mb-4 text-slate-300">執行日誌</h2>
-                <div id="log-container">
-                    <p class="text-slate-500">等待任務開始...</p>
-                </div>
-            </div>
-        </main>
+        <div class="bg-slate-800 p-6 rounded-lg shadow-lg">
+          <h2 class="text-xl font-semibold mb-4 text-slate-300">執行日誌</h2>
+          <div id="log-container">
+            <p class="text-slate-500">等待任務開始...</p>
+          </div>
+        </div>
+      </main>
     </div>
 
     <script>
-        const form = document.getElementById('run-form');
-        const logContainer = document.getElementById('log-container');
-        const submitBtn = document.getElementById('submit-btn');
+      const form = document.getElementById("run-form");
+      const logContainer = document.getElementById("log-container");
+      const submitBtn = document.getElementById("submit-btn");
 
-        // 將表單提交事件監聽器改為異步函數
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
+      // 將表單提交事件監聽器改為異步函數
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
 
-            // 清空日誌並禁用按鈕
-            logContainer.innerHTML = '';
-            submitBtn.disabled = true;
-            submitBtn.textContent = '執行中...';
-            
-            const formData = new FormData(form);
-            
-            try {
-                // 使用 fetch API 進行 POST 請求
-                const response = await fetch('/run', {
-                    method: 'POST',
-                    body: formData,
-                });
+        // 清空日誌並禁用按鈕
+        logContainer.innerHTML = "";
+        submitBtn.disabled = true;
+        submitBtn.textContent = "執行中...";
 
-                if (!response.ok) {
-                    throw new Error(`伺服器錯誤: ${response.status} ${response.statusText}`);
-                }
+        const formData = new FormData(form);
 
-                // 處理串流回應
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
+        try {
+          // 使用 fetch API 進行 POST 請求
+          const response = await fetch("/run", {
+            method: "POST",
+            body: formData,
+          });
 
-                // 建立一個循環來讀取串流
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                        break; // 當串流結束時，跳出循環
-                    }
+          if (!response.ok) {
+            throw new Error(
+              `伺服器錯誤: ${response.status} ${response.statusText}`
+            );
+          }
 
-                    // 將收到的數據塊解碼並附加到緩衝區
-                    buffer += decoder.decode(value, { stream: true });
-                    
-                    // 處理緩衝區中所有完整的訊息
-                    let boundary = buffer.indexOf('\n\n');
-                    while (boundary !== -1) {
-                        const messageString = buffer.substring(0, boundary);
-                        buffer = buffer.substring(boundary + 2);
+          // 處理串流回應
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
 
-                        // 確保訊息以 'data: ' 開頭
-                        if (messageString.startsWith('data: ')) {
-                            const jsonString = messageString.substring(6); // 移除 'data: '
-                            try {
-                                const data = JSON.parse(jsonString);
-                                
-                                // --- 更新 UI 介面 ---
-                                const logEntry = document.createElement('div');
-                                const timestamp = new Date().toLocaleTimeString();
-                                const timestampSpan = `<span class="text-slate-500 mr-2">[${timestamp}]</span>`;
-                                logEntry.innerHTML = `${timestampSpan}<span class="log-${data.type}">${data.content}</span>`;
-                                logContainer.appendChild(logEntry);
-                                
-                                // 自動滾動到最下方
-                                logContainer.scrollTop = logContainer.scrollHeight;
-                                // --- 結束 UI 更新 ---
-
-                                if (data.type === 'done' || data.type === 'error') {
-                                    // 雖然串流應會自動結束，但為保險起見，我們在此停止處理
-                                    reader.cancel(); // 停止讀取
-                                    break;
-                                }
-                            } catch (e) {
-                                console.error('無法解析收到的 JSON:', jsonString, e);
-                            }
-                        }
-                        boundary = buffer.indexOf('\n\n');
-                    }
-                }
-
-            } catch (err) {
-                console.error("Fetch 請求失敗:", err);
-                const errorEntry = document.createElement('div');
-                errorEntry.innerHTML = `<span class="log-error">與伺服器的連線發生錯誤，請檢查後端日誌或網路連線。</span>`;
-                logContainer.appendChild(errorEntry);
-            } finally {
-                // 無論成功或失敗，最後都重新啟用按鈕
-                submitBtn.disabled = false;
-                submitBtn.textContent = '開始執行';
+          // 建立一個循環來讀取串流
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break; // 當串流結束時，跳出循環
             }
-        });
+
+            // 將收到的數據塊解碼並附加到緩衝區
+            buffer += decoder.decode(value, { stream: true });
+
+            // 處理緩衝區中所有完整的訊息
+            let boundary = buffer.indexOf("\n\n");
+            while (boundary !== -1) {
+              const messageString = buffer.substring(0, boundary);
+              buffer = buffer.substring(boundary + 2);
+
+              // 確保訊息以 'data: ' 開頭
+              if (messageString.startsWith("data: ")) {
+                const jsonString = messageString.substring(6); // 移除 'data: '
+                try {
+                  const data = JSON.parse(jsonString);
+
+                  // --- 更新 UI 介面 ---
+                  const logEntry = document.createElement("div");
+                  const timestamp = new Date().toLocaleTimeString();
+                  const timestampSpan = `<span class="text-slate-500 mr-2">[${timestamp}]</span>`;
+                  logEntry.innerHTML = `${timestampSpan}<span class="log-${data.type}">${data.content}</span>`;
+                  logContainer.appendChild(logEntry);
+
+                  // 自動滾動到最下方
+                  logContainer.scrollTop = logContainer.scrollHeight;
+                  // --- 結束 UI 更新 ---
+
+                  if (data.type === "done" || data.type === "error") {
+                    // 雖然串流應會自動結束，但為保險起見，我們在此停止處理
+                    reader.cancel(); // 停止讀取
+                    break;
+                  }
+                } catch (e) {
+                  console.error("無法解析收到的 JSON:", jsonString, e);
+                }
+              }
+              boundary = buffer.indexOf("\n\n");
+            }
+          }
+        } catch (err) {
+          console.error("Fetch 請求失敗:", err);
+          const errorEntry = document.createElement("div");
+          errorEntry.innerHTML = `<span class="log-error">與伺服器的連線發生錯誤，請檢查後端日誌或網路連線。</span>`;
+          logContainer.appendChild(errorEntry);
+        } finally {
+          // 無論成功或失敗，最後都重新啟用按鈕
+          submitBtn.disabled = false;
+          submitBtn.textContent = "開始執行";
+        }
+      });
     </script>
-</body>
+  </body>
 </html>
