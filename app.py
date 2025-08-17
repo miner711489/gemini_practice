@@ -1,18 +1,33 @@
 import os
 import shutil
+import base64
 import time
 import json
 from datetime import datetime
 import google.generativeai as genai
-from flask import Flask, render_template, request, Response, stream_with_context
+from flask import (
+    Flask,
+    render_template,
+    request,
+    Response,
+    stream_with_context,
+    jsonify,
+)
 from GeminiChatSession import GeminiChatSession
 import config
+from werkzeug.utils import secure_filename
 
 # --- 全域設定 ---
 app = Flask(__name__)
 RUN_OPTIONS_PATH = "RunOptions.json"
 RUN_DIR_PATH = "小說2"
 RESPONSE_FILES_DIR = "Response"
+
+TEMP_FOLDER = os.path.join(os.getcwd(), "小說3", "temp")
+# 檢查資料夾是否存在，如果不存在則創建
+if not os.path.exists(TEMP_FOLDER):
+    os.makedirs(TEMP_FOLDER)
+app.config["TEMP_FOLDER"] = TEMP_FOLDER
 
 
 def load_run_options():
@@ -38,12 +53,154 @@ def index():
         return "錯誤：無法載入 RunOptions.json，請檢查檔案是否存在且格式正確。", 500
 
     options = run_options_data.get("options", [])
-    return render_template("index.html", options=options)
+
+    """載入資料"""
+    data_path = "data.json"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            jsondata = json.load(f)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
+
+    return render_template("index.html", options=options, jsondata=jsondata)
 
 
 @app.route("/detail")
 def detail():
-    return render_template("detail.html")
+    id = request.args.get("id")
+
+    """載入資料"""
+    data_path = "data.json"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            jsonarray = json.load(f)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
+
+    jsonarray = list(filter(lambda item: item["id"] == id, jsonarray))
+    if jsonarray:
+        jsondata = jsonarray[0]
+    else:
+        jsondata = {}
+        jsondata["name"] = ""
+
+    return render_template("detail.html", jsondata=jsondata)
+
+
+@app.route("/uploadfile", methods=["POST"])
+def uploadfile():
+    """
+    接收前端發送的 JSON 格式的檔案名稱和 Base64 編碼字串，並將其存為檔案。
+    """
+    try:
+        # 1. 檢查請求是否包含 JSON 資料
+        if not request.is_json:
+            return jsonify({"error": "請求必須是 JSON 格式"}), 400
+
+        # 2. 取得 JSON 資料
+        data = request.get_json()
+        file_name = data.get("file")
+        base64_string = data.get("base64")
+
+        # 3. 檢查必要的欄位是否存在
+        if not file_name or not base64_string:
+            return jsonify({"error": "缺少檔案名稱或 Base64 字串"}), 400
+
+        # 4. 解碼 Base64 字串
+        try:
+            # Base64 解碼
+            file_content = base64.b64decode(base64_string)
+        except base64.binascii.Error:
+            return jsonify({"error": "無效的 Base64 編碼字串"}), 400
+
+        file_path = os.path.join(app.config["TEMP_FOLDER"], file_name)
+
+        # 6. 將二進位內容寫入檔案
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+
+        print(f"成功將檔案 '{file_name}' 儲存到 '{file_path}'")
+
+        # 7. 回傳成功的回應給前端
+        return (
+            jsonify(
+                {
+                    "message": "檔案已成功儲存",
+                    "fileName": file_name,
+                    "path": file_path,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        # 處理任何其他未預期的錯誤
+        print(f"處理請求時發生錯誤：{e}")
+        return jsonify({"error": "伺服器處理錯誤"}), 500
+
+
+@app.route("/doSave", methods=["POST"])
+def do_save():
+    # 檢查請求是否包含 JSON 資料
+    if not request.is_json:
+        return jsonify({"error": "請求必須是 JSON 格式"}), 400
+
+    # 取得前端發送的 JSON 陣列
+    # request.get_json() 會自動將 JSON 陣列解析為 Python 列表
+    try:
+        data = request.get_json()
+    except Exception as e:
+        return jsonify({"error": f"解析 JSON 失敗: {e}"}), 400
+
+    id = data["id"]
+    print(id)
+
+    """載入資料"""
+    data_path = "data.json"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            jsonarray = json.load(f)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
+
+    for item in jsonarray:
+        if item["id"] == id:
+            item["name"] = data["name"]
+            item["prompts"] = data["prompts"]
+
+    print(jsonarray);
+
+    try:
+        with open(data_path, "w", encoding="utf-8") as f:
+            json.dump(jsonarray, f, indent=2, ensure_ascii=False)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
+
+    # 回傳 JSON 回應給前端
+    return (
+        jsonify(
+            {
+                "message": "檔案已成功儲存",
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/run", methods=["POST"])

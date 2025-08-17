@@ -1,0 +1,43 @@
+[
+  {
+    "id": "1",
+    "name": "點讚少女_路線1",
+    "dir": "點讚少女_路線1",
+    "prompts": [
+      {
+        "seqno": "1",
+        "type": "file",
+        "content": "點讚少女.txt",
+        "mode": ""
+      },
+      {
+        "seqno": "1",
+        "type": "text",
+        "content": "測試promptqwertyuiosdsfsafasf",
+        "mode": ""
+      }
+    ]
+  },
+  {
+    "id": "2",
+    "name": "點讚少女_路線2",
+    "dir": "點讚少女_路線2",
+    "prompts": [
+      {
+        "seqno": "1",
+        "type": "file",
+        "content": "點讚少女.txt"
+      },
+      {
+        "seqno": "1",
+        "type": "text",
+        "content": "測試prompt"
+      },
+      {
+        "seqno": "2",
+        "type": "text",
+        "content": "測試prompt2"
+      }
+    ]
+  }
+]
