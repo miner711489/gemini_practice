@@ -15,7 +15,8 @@ from flask import (
 )
 from GeminiChatSession import GeminiChatSession
 import config
-from werkzeug.utils import secure_filename
+from collections import defaultdict
+
 
 # --- 全域設定 ---
 app = Flask(__name__)
@@ -23,7 +24,8 @@ RUN_OPTIONS_PATH = "RunOptions.json"
 RUN_DIR_PATH = "小說2"
 RESPONSE_FILES_DIR = "Response"
 
-TEMP_FOLDER = os.path.join(os.getcwd(), "小說3", "temp")
+RUN_DIR_PATH_three = "小說3"
+TEMP_FOLDER = os.path.join(os.getcwd(), RUN_DIR_PATH_three, "temp")
 # 檢查資料夾是否存在，如果不存在則創建
 if not os.path.exists(TEMP_FOLDER):
     os.makedirs(TEMP_FOLDER)
@@ -132,11 +134,7 @@ def uploadfile():
         # 7. 回傳成功的回應給前端
         return (
             jsonify(
-                {
-                    "message": "檔案已成功儲存",
-                    "fileName": file_name,
-                    "path": file_path,
-                }
+                {"message": "檔案已成功儲存", "fileName": file_name, "path": file_path}
             ),
             200,
         )
@@ -160,9 +158,6 @@ def do_save():
     except Exception as e:
         return jsonify({"error": f"解析 JSON 失敗: {e}"}), 400
 
-    id = data["id"]
-    print(id)
-
     """載入資料"""
     data_path = "data.json"
     try:
@@ -175,12 +170,41 @@ def do_save():
         print(f"錯誤：{data_path} 格式不正確。")
         return None
 
+    dir = data["dir"]
+    for item in data["prompts"]:
+        if item["type"] == "file" and item["mode"] == "n":
+            dest_folder = os.path.join(os.getcwd(), RUN_DIR_PATH_three, dir)
+            # 檢查資料夾是否存在，如果不存在則創建
+            if not os.path.exists(dest_folder):
+                os.makedirs(dest_folder)
+
+            filename = item["content"]
+            src_file_path = os.path.join(app.config["TEMP_FOLDER"], filename)
+            dest_file_path = os.path.join(dest_folder, filename)
+
+            print("路徑")
+            print(src_file_path)
+            print(dest_file_path)
+
+            # 檢查來源檔案是否存在
+            if os.path.exists(src_file_path):
+                try:
+                    # 使用 shutil.move 來移動檔案
+                    shutil.move(src_file_path, dest_file_path)
+                    print(f"檔案已成功從 {src_file_path} 移動到 {dest_file_path}")
+                except shutil.Error as e:
+                    print(f"移動檔案時發生錯誤: {e}")
+                except Exception as e:
+                    print(f"發生意外錯誤: {e}")
+            else:
+                print(f"錯誤: 來源檔案不存在於 {src_file_path}")
+
+    id = data["id"]
     for item in jsonarray:
         if item["id"] == id:
             item["name"] = data["name"]
+            item["dir"] = data["dir"]
             item["prompts"] = data["prompts"]
-
-    print(jsonarray);
 
     try:
         with open(data_path, "w", encoding="utf-8") as f:
@@ -193,14 +217,7 @@ def do_save():
         return None
 
     # 回傳 JSON 回應給前端
-    return (
-        jsonify(
-            {
-                "message": "檔案已成功儲存",
-            }
-        ),
-        200,
-    )
+    return (jsonify({"message": "檔案已成功儲存"}), 200)
 
 
 @app.route("/run", methods=["POST"])
@@ -328,6 +345,117 @@ def gemini_task_generator(json_data):
         execution_time = end_time - start_time
         yield stream_log("done", f"所有任務完成！總執行時間: {execution_time:.2f} 秒。")
 
+    except Exception as e:
+        import traceback
+
+        error_details = traceback.format_exc()
+        yield stream_log("error", f"執行過程中發生未預期的錯誤: {e}\n{error_details}")
+
+
+@app.route("/runbyid", methods=["POST"])
+def runbyid():
+    """處理來自前端的請求，並開始執行 Gemini 任務"""
+    run_id = request.args.get("id")
+
+    # 使用 stream_with_context 來串流回應
+    return Response(
+        stream_with_context(gemini_task_generator_2(run_id)),
+        mimetype="text/event-stream",
+    )
+
+
+def gemini_task_generator_2(run_id):
+
+    def stream_log(message_type, content, showlog=True):
+        """輔助函式，用於格式化並傳送串流訊息"""
+        log_entry = json.dumps({"type": message_type, "content": content})
+        if showlog:
+            print(content)
+        return f"data: {log_entry}\n\n"
+
+    """載入資料"""
+    data_path = "data.json"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            jsonarray = json.load(f)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
+
+    jsonarray = list(filter(lambda item: item["id"] == run_id, jsonarray))
+    if jsonarray:
+        json_data = jsonarray[0]
+
+    dir_name = json_data["dir"]
+
+    try:
+        start_time = time.perf_counter()
+        yield stream_log("status", "處理程序開始...")
+
+        generation_config = genai.types.GenerationConfig(
+            temperature=2,
+            # 其他您需要的設定...
+        )
+
+        chat_session = GeminiChatSession(
+            model_name=config.MODEL_NAME, generation_config=generation_config
+        )
+
+        uploaded_files_result = []
+        run_cnt = 0
+        full_response_content = ""
+        for item in json_data["prompts"]:
+
+            prompt_content = item["content"]
+            type = item["type"]
+
+            if type == "file":
+                # 判斷是檔案，上傳檔案，並寫道uploaded_files_result裡面
+                files_to_upload = [os.path.join(RUN_DIR_PATH_three, dir_name, prompt_content)]
+                yield stream_log("status", f"正在上傳檔案: {prompt_content}...")
+                uploaded_files_result.append(chat_session.upload_files(files_to_upload)[0]) 
+                yield stream_log("status", "檔案上傳完成！")
+            else:
+                run_cnt = run_cnt + 1
+
+                # 判斷是文字，送出執行
+                yield stream_log("status", "正在發送訊息至 Gemini...")
+                response = chat_session.send_message(
+                    prompt=prompt_content, uploaded_files=uploaded_files_result
+                )
+
+                yield stream_log("data", response, False)  # 將單次回應即時傳到前端
+
+                full_response_content += (
+                    response
+                    + "\n\n====================回應分隔線====================\n\n"
+                )
+
+                if run_cnt % 2 == 0:
+                    yield stream_log("status", "處理完畢，暫停 30 秒...")
+                    time.sleep(30)
+                    yield stream_log("status", "暫停結束，繼續處理下一個指令。")
+
+        # --- 5. 儲存最終結果 ---
+        yield stream_log("status", "所有指令處理完畢，正在儲存最終結果...")
+        now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        response_filename = f"response_{now_str}.txt"
+        final_path = os.path.join(
+            RUN_DIR_PATH_three, dir_name, RESPONSE_FILES_DIR, response_filename
+        )
+
+        os.makedirs(os.path.dirname(final_path), exist_ok=True)
+        with open(final_path, "w", encoding="utf-8") as f:
+            f.write(full_response_content)
+
+        yield stream_log("status", f"回應已成功儲存至: {final_path}")
+
+        end_time = time.perf_counter()
+        execution_time = end_time - start_time
+        yield stream_log("done", f"所有任務完成！總執行時間: {execution_time:.2f} 秒。")
     except Exception as e:
         import traceback
 

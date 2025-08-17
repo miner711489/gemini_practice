@@ -23,26 +23,35 @@
       padding: 1rem;
       height: 60vh;
       overflow-y: auto;
-      font-family: "Courier New", Courier, monospace;
+      /* font-family: "Courier New", Courier, monospace; */
+      text-align: left;
     }
 
     /* 自訂日誌文字顏色，不與 Bootstrap 衝突 */
+    .log-item {
+      text-align: left;
+    }
+
     .log-status {
+      text-align: left;
       color: #67e8f9;
     }
 
     .log-error {
       color: #f87171;
       font-weight: bold;
+      text-align: left;
     }
 
     .log-data {
       color: #e5e7eb;
+      text-align: left;
     }
 
     .log-done {
       color: #4ade80;
       font-weight: bold;
+      text-align: left;
     }
   </style>
 
@@ -53,7 +62,7 @@
       var data = jsondata_from_server;
 
       // 初始化 DataTable
-      $('#table1').DataTable({
+      var dataTable = $('#table1').DataTable({
         data: data,
         columns: [
           { data: 'id' },
@@ -64,7 +73,12 @@
               return `<a href="${url}">${data}</a>`;
             }
           },
-          { data: null, render: function (data, type, row) { return ""; } }
+          {
+            data: null,
+            render: function (data, type, row) {
+              return $("<div/>").append($("<button/>", { class: "btn btn-primary btnRun", text: "執行" })).html();
+            }
+          }
         ],
         language: {
           "sProcessing": "處理中...",
@@ -93,6 +107,77 @@
         autoWidth: true,
         responsive: true,
       });
+
+      $("#table1").on('click', ".btnRun", async function (e) {
+        var id = dataTable.row($(this).parents('tr')).data().id;
+
+        const $logContainer = $('#log-container');
+        $logContainer.empty();
+
+        const $submitBtn = $('.btnRun');
+        $submitBtn.prop('disabled', true).text('執行中...');
+
+        try {
+          const response = await fetch(`/runbyid?id=${id}`, {
+            method: "POST"
+          });
+
+          if (!response.ok) {
+            throw new Error(`伺服器錯誤: ${response.status} ${response.statusText}`);
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+
+            let boundary = buffer.indexOf("\n\n");
+            while (boundary !== -1) {
+              const messageString = buffer.substring(0, boundary);
+              buffer = buffer.substring(boundary + 2);
+
+              if (messageString.startsWith("data: ")) {
+                const jsonString = messageString.substring(6);
+                try {
+                  const data = JSON.parse(jsonString);
+
+                  const timestamp = new Date().toLocaleTimeString();
+                  const logEntryHtml = `
+                    <span class="log-item text-muted">[${timestamp}]</span>
+                    <span class="log-${data.type}">${data.content}</span>
+                  `;
+
+                  const $logEntry = $('<div>').html(logEntryHtml);
+                  $logContainer.append($logEntry);
+                  $logContainer.scrollTop($logContainer[0].scrollHeight);
+
+                  if (data.type === "done" || data.type === "error") {
+                    reader.cancel();
+                    break;
+                  }
+                } catch (e) {
+                  console.error("無法解析收到的 JSON:", jsonString, e);
+                }
+              }
+              boundary = buffer.indexOf("\n\n");
+            }
+          }
+        } catch (err) {
+          console.error("Fetch 請求失敗:", err);
+          const $errorEntry = $('<div>').html('<span class="log-error">與伺服器的連線發生錯誤，請檢查後端日誌或網路連線。</span>');
+          $logContainer.append($errorEntry);
+        } finally {
+          $submitBtn.prop('disabled', false).text('執行');
+        }
+      });
+
 
       // 表單提交事件處理
       $('#run-form').on('submit', async function (e) {
