@@ -37,8 +37,8 @@
         $('#fileInput').trigger('click');
       });
       $('#fileInput').on('change', handleFile);
-
-      if (jsondata_from_server) {
+      
+      if ($('#hidId').val() != "") {
         jsondata_from_server.prompts.forEach(element => {
           element.mode = "";
           addNewRow(element);

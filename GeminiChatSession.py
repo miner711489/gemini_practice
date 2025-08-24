@@ -5,6 +5,8 @@ from datetime import datetime
 import google.generativeai as genai
 from google.api_core import exceptions
 from typing import List, Optional, Dict, Any
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
 
 # 假設 genai 已在您的程式某處設定好 API Key
 # genai.configure(api_key="YOUR_API_KEY")
@@ -49,12 +51,33 @@ class GeminiChatSession:
         # if api_key:
         #     genai.configure(api_key=api_key)
 
+                # 調整安全設定
+        safety_settings = [
+            {
+                "category": HarmCategory.HARM_CATEGORY_HARASSMENT,
+                "threshold": HarmBlockThreshold.BLOCK_NONE,
+            },
+            {
+                "category": HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                "threshold": HarmBlockThreshold.BLOCK_NONE,
+            },
+            {
+                "category": HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                "threshold": HarmBlockThreshold.BLOCK_NONE,
+            },
+            {
+                "category": HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                "threshold": HarmBlockThreshold.BLOCK_NONE,
+            },
+        ]
+
         self.printLog(f"正在初始化模型 '{model_name}'...")
         self.model = genai.GenerativeModel(
             model_name=model_name,
             system_instruction=system_instruction_text,
-            safety_settings=None,  # 如果需要安全設置，可以在這裡配置
+            safety_settings=safety_settings,
         )
+
         self.generation_config = generation_config
         # 使用 model.start_chat() 來建立一個具有狀態的對話物件
         self.chat = self.model.start_chat(history=initial_history or [])
@@ -88,7 +111,6 @@ class GeminiChatSession:
                     matching_files.sort(key=lambda f: f.create_time, reverse=True)
                     if matching_files[0].state.name == "ACTIVE":
                         print(f"抓到先前上傳的")
-                        print(matching_files[0])
                         processing_files.append(matching_files[0])
                         NeedUpdate = False
                         jump = True
@@ -181,9 +203,9 @@ class GeminiChatSession:
                 # 對於多輪對話，我們使用 chat.send_message() 而非 model.generate_content()
                 response = self.chat.send_message(
                     request_content,
-                    generation_config=self.generation_config,
-                    # ,safety_settings
+                    generation_config=self.generation_config
                 )
+                print(response)
                 current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 self.printLog(f"\nGemini 已回傳訊息，{current_datetime}...")
                 return response.text
@@ -200,6 +222,7 @@ class GeminiChatSession:
                     self.printLog("已達到最大重試次數，放棄操作。", True)
                     return f"呼叫 Google API 失敗，已重試 {max_retries} 次後放棄。最後錯誤：{e}"
             except Exception as e:
+                print(e)
                 return f"生成回應時發生未預期的錯誤：{e}"
 
     @property

@@ -91,8 +91,7 @@ def detail():
     if jsonarray:
         jsondata = jsonarray[0]
     else:
-        jsondata = {}
-        jsondata["name"] = ""
+        jsondata = []
 
     return render_template("detail.html", jsondata=jsondata)
 
@@ -171,40 +170,53 @@ def do_save():
         return None
 
     dir = data["dir"]
-    for item in data["prompts"]:
-        if item["type"] == "file" and item["mode"] == "n":
-            dest_folder = os.path.join(os.getcwd(), RUN_DIR_PATH_three, dir)
-            # 檢查資料夾是否存在，如果不存在則創建
-            if not os.path.exists(dest_folder):
-                os.makedirs(dest_folder)
+    if dir:
+        for item in data["prompts"]:
+            if item["type"] == "file" and item["mode"] == "n":
+                dest_folder = os.path.join(os.getcwd(), RUN_DIR_PATH_three, dir)
+                # 檢查資料夾是否存在，如果不存在則創建
+                if not os.path.exists(dest_folder):
+                    os.makedirs(dest_folder)
 
-            filename = item["content"]
-            src_file_path = os.path.join(app.config["TEMP_FOLDER"], filename)
-            dest_file_path = os.path.join(dest_folder, filename)
+                filename = item["content"]
+                src_file_path = os.path.join(app.config["TEMP_FOLDER"], filename)
+                dest_file_path = os.path.join(dest_folder, filename)
 
-            print("路徑")
-            print(src_file_path)
-            print(dest_file_path)
+                print("路徑")
+                print(src_file_path)
+                print(dest_file_path)
 
-            # 檢查來源檔案是否存在
-            if os.path.exists(src_file_path):
-                try:
-                    # 使用 shutil.move 來移動檔案
-                    shutil.move(src_file_path, dest_file_path)
-                    print(f"檔案已成功從 {src_file_path} 移動到 {dest_file_path}")
-                except shutil.Error as e:
-                    print(f"移動檔案時發生錯誤: {e}")
-                except Exception as e:
-                    print(f"發生意外錯誤: {e}")
-            else:
-                print(f"錯誤: 來源檔案不存在於 {src_file_path}")
+                # 檢查來源檔案是否存在
+                if os.path.exists(src_file_path):
+                    try:
+                        # 使用 shutil.move 來移動檔案
+                        shutil.move(src_file_path, dest_file_path)
+                        print(f"檔案已成功從 {src_file_path} 移動到 {dest_file_path}")
+                    except shutil.Error as e:
+                        print(f"移動檔案時發生錯誤: {e}")
+                    except Exception as e:
+                        print(f"發生意外錯誤: {e}")
+                else:
+                    print(f"錯誤: 來源檔案不存在於 {src_file_path}")
 
     id = data["id"]
-    for item in jsonarray:
-        if item["id"] == id:
-            item["name"] = data["name"]
-            item["dir"] = data["dir"]
-            item["prompts"] = data["prompts"]
+    if not id == "":
+        for item in jsonarray:
+            if item["id"] == id:
+                item["name"] = data["name"]
+                item["dir"] = data["dir"]
+                item["prompts"] = data["prompts"]
+    else:
+        all_ids = [int(item["id"]) for item in jsonarray]
+        # 使用 max() 函式找出最大的 id
+        max_id = max(all_ids)
+        print(f"jsonarray 中最大的 ID 是: {max_id}")
+        new_item = {}
+        new_item["id"] = str(max_id + 1)
+        new_item["name"] = data["name"]
+        new_item["dir"] = data["dir"]
+        new_item["prompts"] = data["prompts"]
+        jsonarray.append(new_item)
 
     try:
         with open(data_path, "w", encoding="utf-8") as f:
@@ -283,8 +295,11 @@ def gemini_task_generator(json_data):
             # 其他您需要的設定...
         )
 
+
+
         chat_session = GeminiChatSession(
-            model_name=config.MODEL_NAME, generation_config=generation_config
+            model_name=config.MODEL_NAME,
+            generation_config=generation_config,
         )
 
         # --- 3. 上傳檔案 ---
@@ -414,9 +429,13 @@ def gemini_task_generator_2(run_id):
 
             if type == "file":
                 # 判斷是檔案，上傳檔案，並寫道uploaded_files_result裡面
-                files_to_upload = [os.path.join(RUN_DIR_PATH_three, dir_name, prompt_content)]
+                files_to_upload = [
+                    os.path.join(RUN_DIR_PATH_three, dir_name, prompt_content)
+                ]
                 yield stream_log("status", f"正在上傳檔案: {prompt_content}...")
-                uploaded_files_result.append(chat_session.upload_files(files_to_upload)[0]) 
+                uploaded_files_result.append(
+                    chat_session.upload_files(files_to_upload)[0]
+                )
                 yield stream_log("status", "檔案上傳完成！")
             else:
                 run_cnt = run_cnt + 1
@@ -434,10 +453,9 @@ def gemini_task_generator_2(run_id):
                     + "\n\n====================回應分隔線====================\n\n"
                 )
 
-                if run_cnt % 2 == 0:
-                    yield stream_log("status", "處理完畢，暫停 30 秒...")
-                    time.sleep(30)
-                    yield stream_log("status", "暫停結束，繼續處理下一個指令。")
+        yield stream_log("status", "處理完畢，暫停 30 秒...")
+        time.sleep(30)
+        yield stream_log("status", "暫停結束，繼續處理下一個指令。")
 
         # --- 5. 儲存最終結果 ---
         yield stream_log("status", "所有指令處理完畢，正在儲存最終結果...")
