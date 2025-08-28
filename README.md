@@ -54,3 +54,6 @@ pipreqs ./ --force
 
 ```pip install Flask```
 ```pip install opencc```
+
+```docker build -t gemini_practice .```
+```docker run -p 5001:5001 -v d:/Project/python/gemini_practice:/app gemini_practice```
