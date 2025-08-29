@@ -210,8 +210,9 @@ class GeminiChatSession:
                 self.printLog(f"\nGemini 已回傳訊息，{current_datetime}...")
                 return response.text
             except (exceptions.InternalServerError, exceptions.DeadlineExceeded) as e:
+                log_time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 self.printLog(
-                    f"呼叫 API 時發生可重試錯誤 (第 {attempt + 1} 次失敗): {e}", True
+                    f"[{log_time}]呼叫 API 時發生可重試錯誤 (第 {attempt + 1} 次失敗): {e}", True
                 )
                 if attempt < max_retries - 1:
                     # 指數退避邏輯：等待時間 = 基礎延遲 * 2^嘗試次數 + 一個隨機的毫秒數
@@ -219,7 +220,7 @@ class GeminiChatSession:
                     self.printLog(f"將在 {wait_time:.2f} 秒後重試...", True)
                     time.sleep(45)
                 else:
-                    self.printLog("已達到最大重試次數，放棄操作。", True)
+                    self.printLog("[{log_time}]已達到最大重試次數，放棄操作。", True)
                     return f"呼叫 Google API 失敗，已重試 {max_retries} 次後放棄。最後錯誤：{e}"
             except Exception as e:
                 print(e)
