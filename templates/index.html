@@ -56,7 +56,7 @@
   </style>
 
   <script>
-    var jsondata_from_server = {{ jsondata | tojson | safe }};
+    var jsondata_from_server = {{ jsondata | tojson | safe }}
 
     $(document).ready(function () {
       var data = jsondata_from_server;

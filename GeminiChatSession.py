@@ -205,7 +205,7 @@ class GeminiChatSession:
                     request_content,
                     generation_config=self.generation_config
                 )
-                print(response)
+                # print(response)
                 current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 self.printLog(f"\nGemini 已回傳訊息，{current_datetime}...")
                 return response.text
@@ -217,7 +217,7 @@ class GeminiChatSession:
                     # 指數退避邏輯：等待時間 = 基礎延遲 * 2^嘗試次數 + 一個隨機的毫秒數
                     wait_time = (base_delay**attempt) + random.uniform(0, 1)
                     self.printLog(f"將在 {wait_time:.2f} 秒後重試...", True)
-                    time.sleep(wait_time)
+                    time.sleep(45)
                 else:
                     self.printLog("已達到最大重試次數，放棄操作。", True)
                     return f"呼叫 Google API 失敗，已重試 {max_retries} 次後放棄。最後錯誤：{e}"

@@ -37,7 +37,7 @@
         $('#fileInput').trigger('click');
       });
       $('#fileInput').on('change', handleFile);
-      
+
       if ($('#hidId').val() != "") {
         jsondata_from_server.prompts.forEach(element => {
           element.mode = "";
@@ -77,6 +77,7 @@
 
       $('#btnRun').click(async function () {
         var id = $('#hidId').val();
+        var model = $('#lstModel').val();
 
         const $logContainer = $('#log-container');
         $logContainer.empty();
@@ -85,7 +86,7 @@
         $submitBtn.prop('disabled', true).text('執行中...');
 
         try {
-          const response = await fetch(`/runbyid?id=${id}`, {
+          const response = await fetch(`/runbyid?id=${id}&model=${model}`, {
             method: "POST"
           });
 
@@ -312,6 +313,17 @@
         </div>
         <div class="col-md-10">
           <input type="text" class="form-control" id="txtDir" placeholder="路徑" value="{{jsondata.dir}}" />
+        </div>
+      </div>
+      <div class="row mb-3 me-2">
+        <div class="col-md-2 d-flex align-items-center justify-content-start">
+          <label>執行模型</label>
+        </div>
+        <div class="col-md-4">
+          <select class="form-select" id="lstModel">
+            <option value="gemini-2.5-pro" selected="selected">gemini-2.5-pro</option>
+            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+          </select>
         </div>
       </div>
     </div>

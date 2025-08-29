@@ -295,8 +295,6 @@ def gemini_task_generator(json_data):
             # 其他您需要的設定...
         )
 
-
-
         chat_session = GeminiChatSession(
             model_name=config.MODEL_NAME,
             generation_config=generation_config,
@@ -371,15 +369,16 @@ def gemini_task_generator(json_data):
 def runbyid():
     """處理來自前端的請求，並開始執行 Gemini 任務"""
     run_id = request.args.get("id")
+    run_Model = request.args.get("model")
 
     # 使用 stream_with_context 來串流回應
     return Response(
-        stream_with_context(gemini_task_generator_2(run_id)),
+        stream_with_context(gemini_task_generator_2(run_id, run_Model)),
         mimetype="text/event-stream",
     )
 
 
-def gemini_task_generator_2(run_id):
+def gemini_task_generator_2(run_id, run_Model):
 
     def stream_log(message_type, content, showlog=True):
         """輔助函式，用於格式化並傳送串流訊息"""
@@ -408,15 +407,16 @@ def gemini_task_generator_2(run_id):
 
     try:
         start_time = time.perf_counter()
-        yield stream_log("status", "處理程序開始...")
+        yield stream_log("status", f"處理程序開始，使用模型{run_Model}...")
 
         generation_config = genai.types.GenerationConfig(
             temperature=2,
+            max_output_tokens=165536
             # 其他您需要的設定...
         )
 
         chat_session = GeminiChatSession(
-            model_name=config.MODEL_NAME, generation_config=generation_config
+            model_name=run_Model, generation_config=generation_config
         )
 
         uploaded_files_result = []
