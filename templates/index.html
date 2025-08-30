@@ -80,7 +80,7 @@
           {
             data: null,
             render: function (data, type, row) {
-              return $("<div/>").append($("<button/>", { class: "btn btn-primary btnRun", text: "執行" })).html();
+              return $("<div/>").append($("<button/>", { class: "btn btn-danger btnDel", text: "刪除" })).html();
             }
           }
         ],
@@ -112,150 +112,27 @@
         responsive: true,
       });
 
-      $("#table1").on('click', ".btnRun", async function (e) {
+
+      //刪除事件
+      $("#table1").on('click', ".btnDel", async function (e) {
+        if (!confirm("確定要刪除這筆資料嗎？")) {
+          return false;
+        }
+        if (true) {
+          return false;
+        }
+
         var id = dataTable.row($(this).parents('tr')).data().id;
 
-        const $logContainer = $('#log-container');
-        $logContainer.empty();
+        const response = await fetch(`/runbyid?id=${id}`, {
+          method: "POST"
+        });
 
-        const $submitBtn = $('.btnRun');
-        $submitBtn.prop('disabled', true).text('執行中...');
-
-        try {
-          const response = await fetch(`/runbyid?id=${id}`, {
-            method: "POST"
-          });
-
-          if (!response.ok) {
-            throw new Error(`伺服器錯誤: ${response.status} ${response.statusText}`);
-          }
-
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              break;
-            }
-
-            buffer += decoder.decode(value, { stream: true });
-
-            let boundary = buffer.indexOf("\n\n");
-            while (boundary !== -1) {
-              const messageString = buffer.substring(0, boundary);
-              buffer = buffer.substring(boundary + 2);
-
-              if (messageString.startsWith("data: ")) {
-                const jsonString = messageString.substring(6);
-                try {
-                  const data = JSON.parse(jsonString);
-
-                  const timestamp = new Date().toLocaleTimeString();
-                  const logEntryHtml = `
-                    <span class="log-item text-muted">[${timestamp}]</span>
-                    <span class="log-${data.type}">${data.content}</span>
-                  `;
-
-                  const $logEntry = $('<div>').html(logEntryHtml);
-                  $logContainer.append($logEntry);
-                  $logContainer.scrollTop($logContainer[0].scrollHeight);
-
-                  if (data.type === "done" || data.type === "error") {
-                    reader.cancel();
-                    break;
-                  }
-                } catch (e) {
-                  console.error("無法解析收到的 JSON:", jsonString, e);
-                }
-              }
-              boundary = buffer.indexOf("\n\n");
-            }
-          }
-        } catch (err) {
-          console.error("Fetch 請求失敗:", err);
-          const $errorEntry = $('<div>').html('<span class="log-error">與伺服器的連線發生錯誤，請檢查後端日誌或網路連線。</span>');
-          $logContainer.append($errorEntry);
-        } finally {
-          $submitBtn.prop('disabled', false).text('執行');
+        if (!response.ok) {
+          throw new Error(`伺服器錯誤: ${response.status} ${response.statusText}`);
         }
       });
 
-
-      // 表單提交事件處理
-      $('#run-form').on('submit', async function (e) {
-        e.preventDefault();
-
-        const $logContainer = $('#log-container');
-        const $submitBtn = $('#submit-btn');
-
-        $logContainer.empty();
-        $submitBtn.prop('disabled', true).text('執行中...');
-
-        const formData = new FormData(this);
-
-        try {
-          const response = await fetch("/run", {
-            method: "POST",
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error(`伺服器錯誤: ${response.status} ${response.statusText}`);
-          }
-
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              break;
-            }
-
-            buffer += decoder.decode(value, { stream: true });
-
-            let boundary = buffer.indexOf("\n\n");
-            while (boundary !== -1) {
-              const messageString = buffer.substring(0, boundary);
-              buffer = buffer.substring(boundary + 2);
-
-              if (messageString.startsWith("data: ")) {
-                const jsonString = messageString.substring(6);
-                try {
-                  const data = JSON.parse(jsonString);
-
-                  const timestamp = new Date().toLocaleTimeString();
-                  const logEntryHtml = `
-                    <span class="text-muted me-2">[${timestamp}]</span>
-                    <span class="log-${data.type}">${data.content}</span>
-                  `;
-
-                  const $logEntry = $('<div>').html(logEntryHtml);
-                  $logContainer.append($logEntry);
-                  $logContainer.scrollTop($logContainer[0].scrollHeight);
-
-                  if (data.type === "done" || data.type === "error") {
-                    reader.cancel();
-                    break;
-                  }
-                } catch (e) {
-                  console.error("無法解析收到的 JSON:", jsonString, e);
-                }
-              }
-              boundary = buffer.indexOf("\n\n");
-            }
-          }
-        } catch (err) {
-          console.error("Fetch 請求失敗:", err);
-          const $errorEntry = $('<div>').html('<span class="log-error">與伺服器的連線發生錯誤，請檢查後端日誌或網路連線。</span>');
-          $logContainer.append($errorEntry);
-        } finally {
-          $submitBtn.prop('disabled', false).text('開始執行');
-        }
-      });
     });
   </script>
 </head>
@@ -285,35 +162,6 @@
             <tbody>
             </tbody>
           </table>
-        </div>
-
-        <form id="run-form" class="mt-4">
-          <div class="row g-3 align-items-center">
-            <div class="col-12 col-md-auto flex-grow-1">
-              <label for="run_id_select" class="form-label text-muted mb-0">選擇執行選項:</label>
-              <select id="run_id_select" name="run_id" class="form-select">
-                {% for option in options %}
-                <option value="{{ option.id }}">
-                  {{ option.name }} (ID: {{ option.id }}) (option.prompt_files: {{option.prompt_files}})
-                </option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-12 col-md-auto">
-              <button type="submit" id="submit-btn" class="btn btn-primary w-100">開始執行</button>
-            </div>
-          </div>
-        </form>
-      </div>
-
-      <div class="card shadow-lg">
-        <div class="card-header bg-dark text-white">
-          <h5 class="mb-0">執行日誌</h5>
-        </div>
-        <div class="card-body">
-          <div id="log-container">
-            <p class="text-secondary">等待任務開始...</p>
-          </div>
         </div>
       </div>
     </main>
