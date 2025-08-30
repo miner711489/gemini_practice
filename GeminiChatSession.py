@@ -8,10 +8,6 @@ from typing import List, Optional, Dict, Any
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 
-# 假設 genai 已在您的程式某處設定好 API Key
-# genai.configure(api_key="YOUR_API_KEY")
-
-
 class GeminiChatSession:
     """
     一個封裝 Gemini 多輪對話功能的類別。
@@ -48,10 +44,7 @@ class GeminiChatSession:
 我需要你始終用繁體中文與我對話
         """
 
-        # if api_key:
-        #     genai.configure(api_key=api_key)
-
-                # 調整安全設定
+        # 調整安全設定
         safety_settings = [
             {
                 "category": HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -121,7 +114,6 @@ class GeminiChatSession:
                     file_obj = genai.upload_file(
                         path, display_name=os.path.basename(path)
                     )
-                    # uploaded_files.append(file_obj)
                     processing_files.append(file_obj)
                     # print(f"檔案上傳成功：{path}")
             except Exception as e:
@@ -194,7 +186,6 @@ class GeminiChatSession:
             return "錯誤：請提供文字提示或上傳檔案。"
 
         max_retries = 5
-        base_delay = 2  # 基礎延遲時間（秒）
 
         for attempt in range(max_retries):
             current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
@@ -202,8 +193,7 @@ class GeminiChatSession:
             try:
                 # 對於多輪對話，我們使用 chat.send_message() 而非 model.generate_content()
                 response = self.chat.send_message(
-                    request_content,
-                    generation_config=self.generation_config
+                    request_content, generation_config=self.generation_config
                 )
                 # print(response)
                 current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
@@ -212,13 +202,13 @@ class GeminiChatSession:
             except (exceptions.InternalServerError, exceptions.DeadlineExceeded) as e:
                 log_time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 self.printLog(
-                    f"[{log_time}]呼叫 API 時發生可重試錯誤 (第 {attempt + 1} 次失敗): {e}", True
+                    f"[{log_time}]呼叫 API 時發生可重試錯誤 (第 {attempt + 1} 次失敗): {e}",
+                    True,
                 )
                 if attempt < max_retries - 1:
                     # 指數退避邏輯：等待時間 = 基礎延遲 * 2^嘗試次數 + 一個隨機的毫秒數
-                    wait_time = (base_delay**attempt) + random.uniform(0, 1)
-                    self.printLog(f"將在 {wait_time:.2f} 秒後重試...", True)
-                    time.sleep(45)
+                    self.printLog(f"將在 15 秒後重試...", True)
+                    time.sleep(15)
                 else:
                     self.printLog("[{log_time}]已達到最大重試次數，放棄操作。", True)
                     return f"呼叫 Google API 失敗，已重試 {max_retries} 次後放棄。最後錯誤：{e}"
