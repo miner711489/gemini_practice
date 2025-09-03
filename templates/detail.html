@@ -12,6 +12,18 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.min.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap/bootstrap.min.css') }}" />
   <style>
+    #log-message {
+      white-space: pre-line;
+      word-wrap: break-word;
+      background-color: #1e293b;
+      color: #f1f5f9;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      height: 30vh;
+      overflow-y: auto;
+      text-align: left;
+    }
+
     #log-container {
       white-space: pre-line;
       word-wrap: break-word;
@@ -146,6 +158,21 @@
           jsonArray.push(jsonObject);
         });
 
+        $("#table2 tbody tr").each(function () {
+          const currentRow = $(this);
+          const seqno = currentRow.find("select[name='lstSeqNo']").val();
+          const content = currentRow.find("textarea[name='content']").val();
+          const type = currentRow.find("input[name='hidType']").val();
+          const mode = currentRow.find("input[name='hidMode']").val();
+
+          var jsonObject = {};
+          jsonObject.seqno = seqno;
+          jsonObject.type = type;
+          jsonObject.content = content;
+          jsonObject.mode = mode;
+          console.log(jsonObject);
+        });
+
         var data = {}
         data.id = $("#hidId").val();
         data.name = $("#txtName").val();
@@ -167,7 +194,9 @@
         var id = $('#hidId').val();
         var model = $('#lstModel').val();
 
+        const $logMessage = $('#log-message');
         const $logContainer = $('#log-container');
+        $logMessage.empty();
         $logContainer.empty();
 
         const $submitBtn = $('.btnRun');
@@ -207,6 +236,7 @@
                   const data = JSON.parse(jsonString);
                   rtnToken = data.token;
                   if (token == rtnToken) {
+                    console.log();
                     const timestamp = new Date().toLocaleTimeString();
                     const logEntryHtml = `
                     <span class="log-item text-muted">[${timestamp}]</span>
@@ -214,8 +244,13 @@
                   `;
 
                     const $logEntry = $('<div>').html(logEntryHtml);
-                    $logContainer.append($logEntry);
-                    $logContainer.scrollTop($logContainer[0].scrollHeight);
+                    if (data.type == "data") {
+                      $logContainer.append($logEntry);
+                      $logContainer.scrollTop($logContainer[0].scrollHeight);
+                    } else {
+                      $logMessage.append($logEntry);
+                      $logMessage.scrollTop($logContainer[0].scrollHeight);
+                    }
                   }
 
                   if (data.type === "done" || data.type === "error") {
@@ -476,8 +511,13 @@
         <h5 class="mb-0">執行日誌</h5>
       </div>
       <div class="card-body">
-        <div id="log-container">
+        <div id="log-message">
           <p class="text-secondary">等待任務開始...</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="log-container">
+          <p class="text-secondary"></p>
         </div>
       </div>
     </div>
