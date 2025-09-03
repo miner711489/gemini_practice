@@ -289,6 +289,16 @@ def gemini_task_generator(request_data):
                 )
 
                 yield stream_log("data", response, False)  # 將單次回應即時傳到前端
+                
+                errorResult = (
+                    "block_reason: PROHIBITED_CONTENT" in response
+                    or "GenerateRequestsPerMinutePerProjectPerModel" in response
+                    or "GenerateRequestsPerDayPerProjectPerModel" in response
+                )
+
+                if errorResult:
+                    yield stream_log("status", f"發生錯誤，停止執行。")
+                    break
 
                 full_response_content += (
                     response
@@ -300,19 +310,22 @@ def gemini_task_generator(request_data):
                     time.sleep(30)
                     yield stream_log("status", "暫停結束，繼續處理下一個指令。")
 
-        # --- 5. 儲存最終結果 ---
-        yield stream_log("status", "所有指令處理完畢，正在儲存最終結果...")
-        now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        response_filename = f"response_{now_str}.txt"
-        final_path = os.path.join(
-            RUN_DIR_PATH_three, dir_name, RESPONSE_FILES_DIR, response_filename
-        )
+        if not errorResult:
+            # --- 5. 儲存最終結果 ---
+            yield stream_log("status", "所有指令處理完畢，正在儲存最終結果...")
+            now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            response_filename = f"response_{now_str}.txt"
+            final_path = os.path.join(
+                RUN_DIR_PATH_three, dir_name, RESPONSE_FILES_DIR, response_filename
+            )
 
-        os.makedirs(os.path.dirname(final_path), exist_ok=True)
-        with open(final_path, "w", encoding="utf-8") as f:
-            f.write(full_response_content)
+            os.makedirs(os.path.dirname(final_path), exist_ok=True)
+            with open(final_path, "w", encoding="utf-8") as f:
+                f.write(full_response_content)
 
-        yield stream_log("status", f"回應已成功儲存至: {final_path}")
+            yield stream_log("status", f"回應已成功儲存至: {final_path}")
+        else:
+            yield stream_log("status", f"發生錯誤，不執行儲存作業。")
 
         end_time = time.perf_counter()
         execution_time = end_time - start_time
