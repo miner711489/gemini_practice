@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>詳細內容</title>
+  <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/datatables.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/bootstrap/bootstrap.min.js') }}"></script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.min.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap/bootstrap.min.css') }}" />
+  <style>
+    #log-message {
+      white-space: pre-line;
+      word-wrap: break-word;
+      background-color: #1e293b;
+      color: #f1f5f9;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      height: 30vh;
+      overflow-y: auto;
+      text-align: left;
+    }
+
+    #log-container {
+      white-space: pre-line;
+      word-wrap: break-word;
+      background-color: #1e293b;
+      color: #f1f5f9;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      height: 90vh;
+      overflow-y: auto;
+      /* font-family: "Courier New", Courier, monospace; */
+      text-align: left;
+    }
+
+    .file-container {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      background-color: #f8f9fa;
+      margin-bottom: 8px;
+      position: relative;
+      overflow: hidden;
+      max-width: 250px;
+      /* 限制寬度以防過長 */
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .file-container-wrapper {
+      display: flex;
+      /* 啟用 Flexbox */
+      flex-wrap: wrap;
+      /* 允許項目換行 */
+      gap: 8px;
+      /* 設定項目之間的間距 */
+    }
+
+    .file-icon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      font-size: 12px;
+      font-weight: bold;
+      height: 30px;
+      width: 30px;
+      border-radius: 4px;
+      margin-right: 12px;
+      flex-shrink: 0;
+      /* 防止圖示被壓縮 */
+      background-color: #17a2b8;
+    }
+
+    .file-name {
+      font-size: 14px;
+      color: #343a40;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex-grow: 1;
+      /* 檔案名稱佔據剩餘空間 */
+    }
+
+    .file-remove-btn {
+      background: none;
+      border: none;
+      color: #6c757d;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0;
+      margin-left: 12px;
+      line-height: 1;
+      opacity: 0.7;
+      transition: opacity 0.2s ease-in-out;
+      flex-shrink: 0;
+      /* 防止按鈕被壓縮 */
+    }
+
+    .file-remove-btn:hover {
+      opacity: 1;
+    }
+
+    input[type="checkbox"] {
+      width: 25px;
+      /* 寬度 */
+      height: 25px;
+      /* 高度 */
+      transform: scale(1.2);
+      /* 或者用 transform: scale() 讓它變大，這在不同瀏覽器支援度更好 */
+    }
+  </style>
+
+  <script>
+    var jsondata_from_server = {{ jsondata | tojson | safe }}
+    var token
+    var dataTable
+    $(document).ready(function () {
+
+      $("#btnBack").click(function () {
+        location.href = "/";
+      });
+
+      // 綁定事件到元素
+      $('#btnAdd').on('click', addNewRow);
+      $('#btnFileUpdate').on('click', function () {
+        $('#fileInput').trigger('click');
+      });
+      $('#fileInput').on('change', handleFile);
+
+      if ($('#hidId').val() != "") {
+        jsondata_from_server.prompts.forEach(element => {
+          element.mode = "";
+          addNewRow(element);
+        });
+      }
+
+      var jsondata = jsondata_from_server.prompts
+
+      // 初始化 DataTable
+      dataTable = $('#table2').DataTable({
+        data: jsondata,
+        columns: [
+          { // 序號
+            data: null, orderable: false,
+            render: function (data, type, row, meta) {
+              return meta.row + 1;
+            },
+            className: "text-center"
+          },
+          { // 勾選欄位
+            data: null,
+            orderable: false, // 勾選欄位通常不需排序
+            className: "text-center",
+            title: "是否送出<input type='checkbox' id='selectAllRows'>", // 標題欄增加全選 checkbox
+            render: function (data, type, row, meta) {
+              // 為每行資料增加一個 checkbox
+              const rowCheck = $("<input/>").attr({ type: "checkbox", name: "selectRow", checked: row.isSend });
+              return $("<div/>").append(rowCheck).html();
+            }
+          },
+          { // 內容
+            data: "content", orderable: false,
+            render: function (data, type, row) {
+              if (row.type == 'file') {
+
+                const containerDiv = $("<div/>").addClass("file-container-wrapper");
+                const div_file = $("<div/>").addClass("file-container");
+
+                const fileIcon = $('<span/>').addClass('file-icon').text("FILE");//前面的圖示
+                const fileName = $('<span/>').addClass('file-name').text(data);//檔案名稱              
+                const removeBtn = $('<button/>').addClass('file-remove-btn').html('&times;');//移除按鈕
+                // div_file.append(fileIcon).append(fileName).append(removeBtn);
+                div_file.append(fileIcon).append(fileName);
+                containerDiv.append(div_file);
+
+                return $("<div/>").append(containerDiv).html();
+              } else {
+                const nameTextarea = $('<textarea></textarea>').addClass('form-control').attr('name', 'content').attr('rows', 3);
+                return $("<div/>").append(nameTextarea.text(data)).html();
+              }
+            }
+          },
+          { // 預留拖曳排序
+            data: null,
+            orderable: false, // 勾選欄位通常不需排序
+            className: "text-center",
+            render: function (data, type, row, meta) {
+              return "";
+            }
+          },
+          {
+            data: null, orderable: false,
+            render: function (data, type, row) {
+              return $("<div/>")
+                .append($("<button/>", { class: "btn btn-info btnAdjust btn-sm mb-1 w-100", text: "展開" }))
+                .append($("<button/>", { class: "btn btn-secondary btnShrink btn-sm mb-1 w-100", text: "縮回" }))
+                .append($("<button/>", { class: "btn btn-danger btnDel btn-sm mb-1 w-100", text: "刪除" }))
+                .append($("<input/>", { type: "hidden", name: "hidMode", value: row.mode }))
+                .append($("<input/>", { type: "hidden", name: "hidType", value: row.type })).html();
+            }
+          }
+        ],
+        language: {
+          "sProcessing": "處理中...",
+          "sLengthMenu": "顯示 _MENU_ 筆結果",
+          "sZeroRecords": "沒有符合的結果",
+          "sInfo": "顯示第 _START_ 至 _END_ 筆結果，共 _TOTAL_ 筆",
+          "sInfoEmpty": "顯示第 0 至 0 筆結果，共 0 筆",
+          "sInfoFiltered": "(從 _MAX_ 筆結果中過濾)",
+          "sInfoPostFix": "",
+          "sSearch": "搜尋:",
+          "sUrl": "",
+          "oPaginate": {
+            "sFirst": "第一頁",
+            "sPrevious": "上一頁",
+            "sNext": "下一頁",
+            "sLast": "最後一頁"
+          }
+        },
+        pageLength: 10,
+        order: [[0, 'asc']],
+        dom: 't<"text-right"i><"text-center"p>', // 't' 代表 table, 'i' 代表 info, 'p' 代表 pagination
+        searching: false,
+        paging: false,
+        info: true,
+        lengthMenu: false,
+        autoWidth: true,
+        responsive: true,
+      });
+
+      // 綁定新增按鈕事件
+      $('#btnAddRow').on('click', function () {
+        dataTable.row.add({
+          content: "",
+          mode: "n",
+          type: "text"
+        }).draw(false);
+      });
+
+      //按鈕事件
+      $("#table2").on('click', ".btnAdjust", function (e) {
+        const textarea = $(this).closest('tr').find('textarea');
+        if (textarea.length) {
+          textarea.css('height', 'auto').css('height', textarea[0].scrollHeight + 'px');
+        }
+        // adjustTextareaHeight();
+      }).on('click', ".btnShrink", function (e) {
+        const textarea = $(this).closest('tr').find('textarea');
+        if (textarea.length) {
+          textarea.css('height', '').attr('rows', 3);
+        }
+      }).on('click', ".btnDel", function (e) {
+        // 使用 $(this) 取得被點擊的按鈕
+        $(this).closest('tr').remove();
+        $('#table2 tbody tr').each(function (index) {
+          $(this).find('td:first').text(index + 1);
+        });
+      }).on('click', '.file-remove-btn', function () {
+        // 找到最接近的 .file-container 父元素並隱藏它
+        $(this).closest('.file-container').hide();
+      });
+
+      $('#table2 thead').on('change', '#selectAllRows', function () {
+        const isChecked = $(this).prop('checked');
+        // 遍歷所有列的 checkbox，並將它們的狀態設為與全選 checkbox 相同
+        dataTable.rows().every(function () {
+          $(this.node()).find('input[name="selectRow"]').prop('checked', isChecked);
+        });
+      });
+      // 監聽個別列 checkbox 的點擊事件
+      $('#table2 tbody').on('change', 'input[name="selectRow"]', function () {
+        // 檢查是否有未勾選的 checkbox
+        const allChecked = $('input[name="selectRow"]').length === $('input[name="selectRow"]:checked').length;
+        // 更新標題欄全選 checkbox 的狀態
+        $('#selectAllRows').prop('checked', allChecked);
+      });
+
+      $('#btnSave').click(async function () {
+        var jsonArray = []
+        $("#tablebody tr").each(function () {
+          const currentRow = $(this);
+          const seqno = currentRow.find("select[name='lstSeqNo']").val();
+          const content = currentRow.find("textarea[name='content']").val();
+          const type = currentRow.find("input[name='hidType']").val();
+          const mode = currentRow.find("input[name='hidMode']").val();
+
+          var jsonObject = {};
+          jsonObject.seqno = seqno;
+          jsonObject.type = type;
+          jsonObject.content = content;
+          jsonObject.mode = mode;
+          // jsonArray.push(jsonObject);
+        });
+
+        $("#table2 tbody tr").each(function () {
+          const currentRow = $(this);
+          const selectRow = currentRow.find("input[name='selectRow']").is(":checked");
+          const content = currentRow.find("textarea[name='content']").val();
+          const filename = currentRow.find("span.file-name").text();
+          const type = currentRow.find("input[name='hidType']").val();
+          const mode = currentRow.find("input[name='hidMode']").val();
+
+          var jsonObject = {};
+          jsonObject.content = (type == "file" ? filename : content);
+          jsonObject.type = type;
+          jsonObject.mode = mode;
+          jsonObject.isSend = selectRow;
+          console.log(jsonObject)
+          jsonArray.push(jsonObject);
+        });
+
+        var data = {}
+        data.id = $("#hidId").val();
+        data.name = $("#txtName").val();
+        data.dir = $("#txtDir").val();
+        data.prompts = jsonArray;
+        const response = await fetch('/doSave', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data) // 將陣列轉換為 JSON 字串
+        });
+
+      });
+
+      $('#btnRun').click(async function () {
+
+        await $('#btnSave').click();
+
+        token = Math.floor(Math.random() * 1000000);
+        var id = $('#hidId').val();
+        var model = $('#lstModel').val();
+
+        const $logMessage = $('#log-message');
+        const $logContainer = $('#log-container');
+        $logMessage.empty();
+        $logContainer.empty();
+
+        const $submitBtn = $('.btnRun');
+        $submitBtn.prop('disabled', true).text('執行中...');
+
+        try {
+          const response = await fetch('/runbyid', {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, model: model, token: token })
+          });
+
+          if (!response.ok) {
+            throw new Error(`伺服器錯誤: ${response.status} ${response.statusText}`);
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+
+            let boundary = buffer.indexOf("\n\n");
+            while (boundary !== -1) {
+              const messageString = buffer.substring(0, boundary);
+              buffer = buffer.substring(boundary + 2);
+
+              if (messageString.startsWith("data: ")) {
+                const jsonString = messageString.substring(6);
+                try {
+                  const data = JSON.parse(jsonString);
+                  rtnToken = data.token;
+                  if (token == rtnToken) {
+                    console.log();
+                    const timestamp = new Date().toLocaleTimeString();
+                    const logEntryHtml = `
+                    <span class="log-item text-muted">[${timestamp}]</span>
+                    <span class="log-${data.type}">${data.content}</span>
+                  `;
+
+                    const $logEntry = $('<div>').html(logEntryHtml);
+                    if (data.type == "data") {
+                      $logContainer.append($logEntry);
+                      $logContainer.scrollTop($logContainer[0].scrollHeight);
+                    } else {
+                      $logMessage.append($logEntry);
+                      $logMessage.scrollTop($logContainer[0].scrollHeight);
+                    }
+                  }
+
+                  if (data.type === "done" || data.type === "error") {
+                    reader.cancel();
+                    break;
+                  }
+                } catch (e) {
+                  console.error("無法解析收到的 JSON:", jsonString, e);
+                }
+              }
+              boundary = buffer.indexOf("\n\n");
+            }
+          }
+        } catch (err) {
+          console.error("Fetch 請求失敗:", err);
+          const $errorEntry = $('<div>').html('<span class="log-error">與伺服器的連線發生錯誤，請檢查後端日誌或網路連線。</span>');
+          $logContainer.append($errorEntry);
+        } finally {
+          $submitBtn.prop('disabled', false).text('執行');
+        }
+      })
+
+    });
+
+    // 增加一個新行
+    function addNewRow(data) {
+      const tableBody = $('#tablebody');
+      const rowCount = tableBody.find('tr').length + 1;
+
+      // 創建新行
+      const newRow = $('<tr></tr>');
+
+      // 序號
+      const Cell1 = $('<td></td>').text(rowCount).css('text-align', 'center');
+
+      // 排序
+      const sortInput = $('<select></select>').addClass('form-select').attr('name', 'lstSeqNo');
+      for (let i = 1; i <= 5; i++) {
+        if (data && data.seqno == i) {
+          sortInput.append($('<option></option>').val(i).text(i).attr("selected", "selected"));
+        } else {
+          sortInput.append($('<option></option>').val(i).text(i));
+        }
+      }
+
+      const Cell2 = $('<td></td>').append(sortInput);
+
+      // 內容
+      const nameTextarea = $('<textarea></textarea>').addClass('form-control').attr('name', 'content').attr('rows', 3);
+      if (data) {
+        nameTextarea.val(data.content);
+      }
+
+      //有空這邊條一下
+      var type = data.type == "click" ? "text" : data.type;
+      const hidType = $("<input/>").attr('type', 'hidden').attr('name', 'hidType').val(type);
+
+      var hidMode;
+      if (data) {
+        hidMode = $("<input/>").attr('type', 'hidden').attr('name', 'hidMode').val(data.mode);
+      } else {
+        hidMode = $("<input/>").attr('type', 'hidden').attr('name', 'hidMode').val("n");
+      }
+
+      const Cell3 = $('<td></td>').append(nameTextarea).append(hidType).append(hidMode);
+
+      // 動作按鈕
+      const adjustButton = $('<button></button>').addClass('btn btn-info btn-sm mb-1 w-100').text('展開');
+      const shrinkButton = $('<button></button>').addClass('btn btn-secondary btn-sm mb-1 w-100').text('縮回');
+      const deleteButton = $('<button></button>').addClass('btn btn-danger btn-sm w-100').text('刪除');
+
+      const buttonDiv = $('<div></div>').addClass('d-flex flex-column align-items-center');
+      buttonDiv.append(adjustButton, shrinkButton, deleteButton);
+
+      const Cell4 = $('<td></td>').append(buttonDiv).addClass('text-center text-nowrap');
+
+      // 將所有單元格添加到新行
+      newRow.append(Cell1, Cell2, Cell3, Cell4);
+
+      // 將新行添加到表格主體
+      tableBody.append(newRow);
+
+      // 綁定事件監聽器
+      adjustButton.on('click', adjustTextareaHeight);
+      shrinkButton.on('click', shrinkTextareaHeight);
+      deleteButton.on('click', deleteRow);
+    }
+
+    // 刪除一個行
+    function deleteRow() {
+      // 使用 $(this) 取得被點擊的按鈕
+      $(this).closest('tr').remove();
+      reorderRows();
+    }
+
+    // 重新排序序號
+    function reorderRows() {
+      $('#tablebody tr').each(function (index) {
+        $(this).find('td:first').text(index + 1);
+      });
+    }
+
+    // 調整 textarea 高度
+    function adjustTextareaHeight() {
+      const textarea = $(this).closest('tr').find('textarea');
+      if (textarea.length) {
+        textarea.css('height', 'auto').css('height', textarea[0].scrollHeight + 'px');
+      }
+    }
+
+    // 縮回 textarea 高度
+    function shrinkTextareaHeight() {
+      const textarea = $(this).closest('tr').find('textarea');
+      if (textarea.length) {
+        textarea.css('height', '').attr('rows', 3);
+      }
+    }
+
+    // 處理檔案
+    async function handleFile(event) {
+      var files = event.target.files[0];
+      var reader = new FileReader();
+      reader.onloadend = (function (file) {
+        return function (evt) {
+          var baseSplit = evt.target.result.split(",");
+          var base64 = baseSplit[1];
+          uploadFile(file, base64);
+        };
+      })(files);
+      reader.readAsDataURL(files);
+    }
+
+    async function uploadFile(file, base64) {
+      try {
+        const response = await fetch('/uploadfile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            "file": file.name,
+            "base64": base64
+          }),
+        });
+
+        // 檢查 HTTP 狀態碼是否成功 (例如 200-299)
+        if (!response.ok) {
+          // 如果回應不成功，拋出一個錯誤
+          throw new Error(`HTTP 錯誤：${response.status}`);
+        }
+
+        // await 會暫停程式執行，直到 response.json() 完成並回傳解析後的 JSON
+        const result = await response.json();
+
+        console.log('Success:', result);
+        alert('資料儲存成功！');
+
+        const jsonobj = {};
+        jsonobj.content = file.name;
+        jsonobj.type = "file";
+        jsonobj.mode = "n"
+        addNewRow(jsonobj);
+
+        if (typeof dataTable !== 'undefined' && dataTable !== null) {
+          dataTable.row.add({
+            content: file.name,
+            type: "file",
+            mode: "n",
+            isSend: true
+          }).draw(false);
+        }
+      } catch (error) {
+        // 在這裡處理所有錯誤，包括網路問題和 HTTP 狀態碼錯誤
+        console.error('Error:', error);
+        alert('資料儲存失敗。');
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div class="container mt-5 mb-5">
+    <div class="card text-center mb-4">
+      <input type="hidden" id="hidId" value="{{jsondata.id}}" />
+      <div class="row mb-3 mt-3 me-2">
+        <div class="col-md-2 d-flex align-items-center justify-content-start">
+          <label>名稱</label>
+        </div>
+        <div class="col-md-10">
+          <input type="text" class="form-control" id="txtName" placeholder="請輸入名稱" value="{{jsondata.name}}" />
+        </div>
+      </div>
+      <div class="row mb-3 me-2">
+        <div class="col-md-2 d-flex align-items-center justify-content-start">
+          <label>路徑</label>
+        </div>
+        <div class="col-md-10">
+          <input type="text" class="form-control" id="txtDir" placeholder="路徑" value="{{jsondata.dir}}" />
+        </div>
+      </div>
+      <div class="row mb-3 me-2">
+        <div class="col-md-2 d-flex align-items-center justify-content-start">
+          <label>執行模型</label>
+        </div>
+        <div class="col-md-4">
+          <select class="form-select" id="lstModel">
+            <option value="gemini-2.5-pro" selected="selected">gemini-2.5-pro</option>
+            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4" style="display: none;">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table id="table1" class="table table-striped table-bordered mb-0">
+            <thead>
+              <tr>
+                <th class="text-center" style="width: 50px;">序</th>
+                <th class="text-center" style="width: 10%;">執行序列</th>
+                <th class="text-center" style="width: 75%;">內容</th>
+                <th class="text-center" style="width: 180px;">
+                  <button class="btn btn-primary btn-sm" id="btnAdd">新增</button>
+                  <!-- <button class="btn btn-success btn-sm" id="btnFileUpdate">檔案上傳</button>
+                  <input type="file" id="fileInput" style="display: none;"> -->
+                </th>
+              </tr>
+            </thead>
+            <tbody id="tablebody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table id="table2" class="table table-striped table-bordered mb-0">
+            <thead>
+              <tr>
+                <th class="text-center" style="width: 7%;">序號</th>
+                <th class="text-center" style="width: 7%;"></th>
+                <th class="text-center" style="width: 70%;">內容</th>
+                <th class="text-center" style="width: 5%;"></th>
+                <th class="text-center" style="width: 10%;">
+                  <button class="btn btn-primary btn-sm" id="btnAddRow">新增</button>
+                  <button class="btn btn-success btn-sm" id="btnFileUpdate">檔案上傳</button>
+                  <input type="file" id="fileInput" style="display: none;">
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-4">
+      <button id="btnBack" class="btn btn-primary">上一頁</button>
+      <button id="btnSave" class="btn btn-primary">儲存</button>
+      <button id="btnRun" class="btn btn-success">執行</button>
+    </div>
+
+    <div class="card shadow-lg mt-4">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">執行日誌</h5>
+      </div>
+      <div class="card-body">
+        <div id="log-message">
+          <p class="text-secondary">等待任務開始...</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="log-container">
+          <p class="text-secondary"></p>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+</body>
+
+</html>
