@@ -14,7 +14,7 @@ class GeminiChatSession:
     它會維護一個對話歷史，讓模型能夠記住之前的互動。
     """
 
-    def printLog(self, obj: Any, mustShow: bool = False):
+    def printLog(self, obj: Any, mustShow: bool = True):
         showLog = False
         if mustShow or showLog:
             print(obj)
@@ -207,12 +207,13 @@ class GeminiChatSession:
                 )
                 if attempt < max_retries - 1:
                     # 指數退避邏輯：等待時間 = 基礎延遲 * 2^嘗試次數 + 一個隨機的毫秒數
-                    self.printLog(f"將在 15 秒後重試...", True)
-                    time.sleep(15)
+                    self.printLog(f"將在 60 秒後重試...", True)
+                    time.sleep(60)
                 else:
                     self.printLog("[{log_time}]已達到最大重試次數，放棄操作。", True)
                     return f"呼叫 Google API 失敗，已重試 {max_retries} 次後放棄。最後錯誤：{e}"
             except Exception as e:
+                print("=====發生未知錯誤=====")
                 print(e)
                 return f"生成回應時發生未預期的錯誤：{e}"
 
