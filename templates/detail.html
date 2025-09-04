@@ -36,11 +36,91 @@
       /* font-family: "Courier New", Courier, monospace; */
       text-align: left;
     }
+
+    .file-container {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      background-color: #f8f9fa;
+      margin-bottom: 8px;
+      position: relative;
+      overflow: hidden;
+      max-width: 250px;
+      /* 限制寬度以防過長 */
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .file-container-wrapper {
+      display: flex;
+      /* 啟用 Flexbox */
+      flex-wrap: wrap;
+      /* 允許項目換行 */
+      gap: 8px;
+      /* 設定項目之間的間距 */
+    }
+
+    .file-icon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      font-size: 12px;
+      font-weight: bold;
+      height: 30px;
+      width: 30px;
+      border-radius: 4px;
+      margin-right: 12px;
+      flex-shrink: 0;
+      /* 防止圖示被壓縮 */
+      background-color: #17a2b8;
+    }
+
+    .file-name {
+      font-size: 14px;
+      color: #343a40;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex-grow: 1;
+      /* 檔案名稱佔據剩餘空間 */
+    }
+
+    .file-remove-btn {
+      background: none;
+      border: none;
+      color: #6c757d;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0;
+      margin-left: 12px;
+      line-height: 1;
+      opacity: 0.7;
+      transition: opacity 0.2s ease-in-out;
+      flex-shrink: 0;
+      /* 防止按鈕被壓縮 */
+    }
+
+    .file-remove-btn:hover {
+      opacity: 1;
+    }
+
+    input[type="checkbox"] {
+      width: 25px;
+      /* 寬度 */
+      height: 25px;
+      /* 高度 */
+      transform: scale(1.2);
+      /* 或者用 transform: scale() 讓它變大，這在不同瀏覽器支援度更好 */
+    }
   </style>
 
   <script>
     var jsondata_from_server = {{ jsondata | tojson | safe }}
     var token
+    var dataTable
     $(document).ready(function () {
 
       $("#btnBack").click(function () {
@@ -64,7 +144,7 @@
       var jsondata = jsondata_from_server.prompts
 
       // 初始化 DataTable
-      var dataTable = $('#table2').DataTable({
+      dataTable = $('#table2').DataTable({
         data: jsondata,
         columns: [
           { // 序號
@@ -74,11 +154,45 @@
             },
             className: "text-center"
           },
+          { // 勾選欄位
+            data: null,
+            orderable: false, // 勾選欄位通常不需排序
+            className: "text-center",
+            title: "是否送出<input type='checkbox' id='selectAllRows'>", // 標題欄增加全選 checkbox
+            render: function (data, type, row, meta) {
+              // 為每行資料增加一個 checkbox
+              const rowCheck = $("<input/>").attr({ type: "checkbox", name: "selectRow", checked: row.isSend });
+              return $("<div/>").append(rowCheck).html();
+            }
+          },
           { // 內容
             data: "content", orderable: false,
             render: function (data, type, row) {
-              const nameTextarea = $('<textarea></textarea>').addClass('form-control').attr('name', 'content').attr('rows', 3);
-              return $("<div/>").append(nameTextarea.text(data)).html();
+              if (row.type == 'file') {
+
+                const containerDiv = $("<div/>").addClass("file-container-wrapper");
+                const div_file = $("<div/>").addClass("file-container");
+
+                const fileIcon = $('<span/>').addClass('file-icon').text("FILE");//前面的圖示
+                const fileName = $('<span/>').addClass('file-name').text(data);//檔案名稱              
+                const removeBtn = $('<button/>').addClass('file-remove-btn').html('&times;');//移除按鈕
+                // div_file.append(fileIcon).append(fileName).append(removeBtn);
+                div_file.append(fileIcon).append(fileName);
+                containerDiv.append(div_file);
+
+                return $("<div/>").append(containerDiv).html();
+              } else {
+                const nameTextarea = $('<textarea></textarea>').addClass('form-control').attr('name', 'content').attr('rows', 3);
+                return $("<div/>").append(nameTextarea.text(data)).html();
+              }
+            }
+          },
+          { // 預留拖曳排序
+            data: null,
+            orderable: false, // 勾選欄位通常不需排序
+            className: "text-center",
+            render: function (data, type, row, meta) {
+              return "";
             }
           },
           {
@@ -87,7 +201,9 @@
               return $("<div/>")
                 .append($("<button/>", { class: "btn btn-info btnAdjust btn-sm mb-1 w-100", text: "展開" }))
                 .append($("<button/>", { class: "btn btn-secondary btnShrink btn-sm mb-1 w-100", text: "縮回" }))
-                .append($("<button/>", { class: "btn btn-danger btnDel btn-sm mb-1 w-100", text: "刪除" })).html();
+                .append($("<button/>", { class: "btn btn-danger btnDel btn-sm mb-1 w-100", text: "刪除" }))
+                .append($("<input/>", { type: "hidden", name: "hidMode", value: row.mode }))
+                .append($("<input/>", { type: "hidden", name: "hidType", value: row.type })).html();
             }
           }
         ],
@@ -119,6 +235,14 @@
         responsive: true,
       });
 
+      // 綁定新增按鈕事件
+      $('#btnAddRow').on('click', function () {
+        dataTable.row.add({
+          content: "",
+          mode: "n",
+          type: "text"
+        }).draw(false);
+      });
 
       //按鈕事件
       $("#table2").on('click', ".btnAdjust", function (e) {
@@ -138,8 +262,25 @@
         $('#table2 tbody tr').each(function (index) {
           $(this).find('td:first').text(index + 1);
         });
+      }).on('click', '.file-remove-btn', function () {
+        // 找到最接近的 .file-container 父元素並隱藏它
+        $(this).closest('.file-container').hide();
       });
 
+      $('#table2 thead').on('change', '#selectAllRows', function () {
+        const isChecked = $(this).prop('checked');
+        // 遍歷所有列的 checkbox，並將它們的狀態設為與全選 checkbox 相同
+        dataTable.rows().every(function () {
+          $(this.node()).find('input[name="selectRow"]').prop('checked', isChecked);
+        });
+      });
+      // 監聽個別列 checkbox 的點擊事件
+      $('#table2 tbody').on('change', 'input[name="selectRow"]', function () {
+        // 檢查是否有未勾選的 checkbox
+        const allChecked = $('input[name="selectRow"]').length === $('input[name="selectRow"]:checked').length;
+        // 更新標題欄全選 checkbox 的狀態
+        $('#selectAllRows').prop('checked', allChecked);
+      });
 
       $('#btnSave').click(async function () {
         var jsonArray = []
@@ -155,22 +296,24 @@
           jsonObject.type = type;
           jsonObject.content = content;
           jsonObject.mode = mode;
-          jsonArray.push(jsonObject);
+          // jsonArray.push(jsonObject);
         });
 
         $("#table2 tbody tr").each(function () {
           const currentRow = $(this);
-          const seqno = currentRow.find("select[name='lstSeqNo']").val();
+          const selectRow = currentRow.find("input[name='selectRow']").is(":checked");
           const content = currentRow.find("textarea[name='content']").val();
+          const filename = currentRow.find("span.file-name").text();
           const type = currentRow.find("input[name='hidType']").val();
           const mode = currentRow.find("input[name='hidMode']").val();
 
           var jsonObject = {};
-          jsonObject.seqno = seqno;
+          jsonObject.content = (type == "file" ? filename : content);
           jsonObject.type = type;
-          jsonObject.content = content;
           jsonObject.mode = mode;
-          console.log(jsonObject);
+          jsonObject.isSend = selectRow;
+          console.log(jsonObject)
+          jsonArray.push(jsonObject);
         });
 
         var data = {}
@@ -413,6 +556,15 @@
         jsonobj.type = "file";
         jsonobj.mode = "n"
         addNewRow(jsonobj);
+
+        if (typeof dataTable !== 'undefined' && dataTable !== null) {
+          dataTable.row.add({
+            content: file.name,
+            type: "file",
+            mode: "n",
+            isSend: true
+          }).draw(false);
+        }
       } catch (error) {
         // 在這裡處理所有錯誤，包括網路問題和 HTTP 狀態碼錯誤
         console.error('Error:', error);
@@ -455,7 +607,7 @@
       </div>
     </div>
 
-    <div class="card mb-4">
+    <div class="card mb-4" style="display: none;">
       <div class="card-body p-0">
         <div class="table-responsive">
           <table id="table1" class="table table-striped table-bordered mb-0">
@@ -466,8 +618,8 @@
                 <th class="text-center" style="width: 75%;">內容</th>
                 <th class="text-center" style="width: 180px;">
                   <button class="btn btn-primary btn-sm" id="btnAdd">新增</button>
-                  <button class="btn btn-success btn-sm" id="btnFileUpdate">檔案上傳</button>
-                  <input type="file" id="fileInput" style="display: none;">
+                  <!-- <button class="btn btn-success btn-sm" id="btnFileUpdate">檔案上傳</button>
+                  <input type="file" id="fileInput" style="display: none;"> -->
                 </th>
               </tr>
             </thead>
@@ -478,18 +630,20 @@
       </div>
     </div>
 
-    <div class="card mb-4" style="display: none;">
+    <div class="card mb-4">
       <div class="card-body p-0">
         <div class="table-responsive">
           <table id="table2" class="table table-striped table-bordered mb-0">
             <thead>
               <tr>
-                <th class="text-center" style="width: 50px;">序號</th>
-                <th class="text-center" style="width: 75%;">內容</th>
-                <th class="text-center" style="width: 180px;">
-                  <!-- <button class="btn btn-primary btn-sm" id="btnAdd">新增</button>
+                <th class="text-center" style="width: 7%;">序號</th>
+                <th class="text-center" style="width: 7%;"></th>
+                <th class="text-center" style="width: 70%;">內容</th>
+                <th class="text-center" style="width: 5%;"></th>
+                <th class="text-center" style="width: 10%;">
+                  <button class="btn btn-primary btn-sm" id="btnAddRow">新增</button>
                   <button class="btn btn-success btn-sm" id="btnFileUpdate">檔案上傳</button>
-                  <input type="file" id="fileInput" style="display: none;"> -->
+                  <input type="file" id="fileInput" style="display: none;">
                 </th>
               </tr>
             </thead>
