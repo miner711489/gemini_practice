@@ -265,7 +265,14 @@ def gemini_task_generator(request_data):
         run_cnt = 0
         full_response_content = ""
         for item in json_data["prompts"]:
+            if "isSend" in item:
+                isSend = item["isSend"]
+            else:
+                isSend = True # 設定預設值
 
+            if isSend == False:
+                continue
+            
             prompt_content = item["content"]
             type = item["type"]
 

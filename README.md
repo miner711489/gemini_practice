@@ -57,3 +57,11 @@ pipreqs ./ --force
 
 ```docker build -t gemini_practice .```
 ```docker run -p 5001:5001 -v d:/Project/python/gemini_practice:/app gemini_practice```
+
+docker-compose.yml
+啟動
+```docker-compose up --build```
+```docker-compose up -d --build```
+
+停止
+```docker-compose down```
