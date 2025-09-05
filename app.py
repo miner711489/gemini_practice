@@ -254,7 +254,7 @@ def gemini_task_generator(request_data):
 
         generation_config = genai.types.GenerationConfig(
             temperature=2,
-            max_output_tokens=65536,
+            # max_output_tokens=16384,
         )
 
         chat_session = GeminiChatSession(
@@ -268,11 +268,11 @@ def gemini_task_generator(request_data):
             if "isSend" in item:
                 isSend = item["isSend"]
             else:
-                isSend = True # 設定預設值
+                isSend = True  # 設定預設值
 
             if isSend == False:
                 continue
-            
+
             prompt_content = item["content"]
             type = item["type"]
 
@@ -296,7 +296,7 @@ def gemini_task_generator(request_data):
                 )
 
                 yield stream_log("data", response, False)  # 將單次回應即時傳到前端
-                
+
                 errorResult = (
                     "block_reason: PROHIBITED_CONTENT" in response
                     or "GenerateRequestsPerMinutePerProjectPerModel" in response
@@ -312,9 +312,9 @@ def gemini_task_generator(request_data):
                     + "\n\n====================回應分隔線====================\n\n"
                 )
 
-                if run_cnt % 2 == 0 and (not item == json_data["prompts"][-1]):
-                    yield stream_log("status", "處理完畢，暫停 30 秒...")
-                    time.sleep(30)
+                if not item == json_data["prompts"][-1]:
+                    yield stream_log("status", "處理完畢，暫停 5 秒...")
+                    time.sleep(5)
                     yield stream_log("status", "暫停結束，繼續處理下一個指令。")
 
         if not errorResult:

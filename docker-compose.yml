@@ -1,13 +1,20 @@
-version: "3.9"
+version: "3.9"  # docker-compose 檔案版本
 
 services:
+  # 定義一個名為 gemini_practice 的服務
   gemini_practice:
-    build: .
-    container_name: gemini_practice
+    # 使用當前目錄的 Dockerfile 建立映像檔
+    build: .  
+    # 設定container名稱
+    container_name: gemini_practice  
+    # 設定port：主機的 5001 對應到容器內的 5001
     ports:
-      - "5001:5001"
+      - "5001:5001"  
+    # 掛載當前目錄到容器內 /app
     volumes:
-      - .:/app
+      - .:/app  
+    # 設定時區為台北
     environment:
-      - TZ=Asia/Taipei
-    command: python app.py
+      - TZ=Asia/Taipei  
+    # 覆蓋 Dockerfile 的 CMD，啟動應用程式
+    command: python app.py 
