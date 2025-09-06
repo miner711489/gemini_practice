@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>先前生成</title>
+  <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/datatables.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/bootstrap/bootstrap.min.js') }}"></script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.min.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap/bootstrap.min.css') }}" />
+  <style>
+
+    #log-container {
+      white-space: pre-line;
+      word-wrap: break-word;
+      background-color: #1e293b;
+      color: #f1f5f9;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      height: 90vh;
+      overflow-y: auto;
+      /* font-family: "Courier New", Courier, monospace; */
+      text-align: left;
+    }
+
+    input[type="checkbox"] {
+      width: 25px;
+      /* 寬度 */
+      height: 25px;
+      /* 高度 */
+      transform: scale(1.2);
+      /* 或者用 transform: scale() 讓它變大，這在不同瀏覽器支援度更好 */
+    }
+  </style>
+
+  <script>
+    var token
+    var dataTable
+    $(document).ready(async function () {
+
+      $("#btnBack").click(function () {
+        location.href = "/";
+      });
+
+      $("#lstRunId").change(function () {
+        getHistoryData($("#lstRunId").val());
+      }).change();
+
+
+    });
+
+
+    async function getHistoryData(id) {
+
+      var jsondata = await getJsonData(id);
+
+      // 初始化 DataTable
+      if (dataTable) {
+        dataTable.destroy();
+        $('#table1 tbody').empty();
+      }
+
+      dataTable = $('#table1').DataTable({
+        data: jsondata,
+        columns: [
+          { // 序號
+            data: null, orderable: false,
+            render: function (data, type, row, meta) {
+              return meta.row + 1;
+            },
+            className: "text-center"
+          },
+          {
+            data: 'filename',
+            // render: function (data, type, row) {
+
+            // }
+          },
+          {
+            data: null, orderable: false,
+            render: function (data, type, row) {
+              return $("<div/>")
+                .append($("<button/>", { class: "btn btn-success btnView btn-sm mb-1 w-100", text: "查看" })).html()
+              // .append($("<button/>", { class: "btn btn-danger btnDel btn-sm mb-1 w-100", text: "刪除" }))
+            }
+          }
+        ],
+        language: {
+          "sProcessing": "處理中...",
+          "sLengthMenu": "顯示 _MENU_ 筆結果",
+          "sZeroRecords": "沒有符合的結果",
+          "sInfo": "顯示第 _START_ 至 _END_ 筆結果，共 _TOTAL_ 筆",
+          "sInfoEmpty": "顯示第 0 至 0 筆結果，共 0 筆",
+          "sInfoFiltered": "(從 _MAX_ 筆結果中過濾)",
+          "sInfoPostFix": "",
+          "sSearch": "搜尋:",
+          "sUrl": "",
+          "oPaginate": {
+            "sFirst": "第一頁",
+            "sPrevious": "上一頁",
+            "sNext": "下一頁",
+            "sLast": "最後一頁"
+          }
+        },
+        pageLength: 10,
+        order: [[0, 'asc']],
+        dom: 't<"text-right"i><"text-center"p>', // 't' 代表 table, 'i' 代表 info, 'p' 代表 pagination
+        searching: false,
+        paging: true,
+        info: true,
+        lengthMenu: false,
+        autoWidth: true,
+        responsive: true,
+      });
+
+      //按鈕事件
+      $("#table1").on('click', ".btnView", async function (e) {
+        var filename = dataTable.row($(this).parents('tr')).data().filename;
+        const response = await fetch('/getTxtContent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            "id": $("#lstRunId").val(),
+            "filename": filename,
+          }),
+        });
+
+        // await 會暫停程式執行，直到 response.json() 完成並回傳解析後的 JSON
+        const result = await response.json();
+
+        console.log(result.content);
+        const $logContainer = $('#log-container');
+        $logContainer.empty();
+
+        const logEntryHtml = `<span class="log-data">${result.content}</span>`;
+        const $logEntry = $('<div>').html(logEntryHtml);
+        $logContainer.append($logEntry);
+        // $logContainer.scrollTop($logContainer[0].scrollHeight);
+
+      });
+    }
+
+    async function getJsonData(id) {
+      try {
+        const response = await fetch('/getHistoryData', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            "id": id,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP 錯誤：${response.status}`);
+        }
+
+        // await 會暫停程式執行，直到 response.json() 完成並回傳解析後的 JSON
+        const result = await response.json();
+        return result;
+      } catch (error) {
+        // 在這裡處理所有錯誤，包括網路問題和 HTTP 狀態碼錯誤
+        console.error('Error:', error);
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div class="container mt-5 mb-5">
+    <div class="card mb-4">
+      <input type="hidden" id="hidId" value="{{id}}" />
+      <div class="row mb-3 mt-3 me-2">
+        <div class="col-md-2 d-flex align-items-center justify-content-start">
+          <label>名稱</label>
+        </div>
+        <div class="col-md-4">
+          <select class="form-select" id="lstRunId" name="lstRunId">
+            {% for option in jsondata %}
+            <option value="{{ option.id }}">
+              {{ option.name }} (ID: {{ option.id }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table id="table1" class="table table-striped table-bordered mb-0">
+            <thead>
+              <tr>
+                <th class="text-center" style="width: 7%;">序號</th>
+                <th class="text-center" style="width: 70%;">檔名</th>
+                <th class="text-center" style="width: 5%;"></th>
+              </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-4">
+      <button id="btnBack" class="btn btn-primary">上一頁</button>
+    </div>
+
+    <div class="card shadow-lg mt-4">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">內容</h5>
+      </div>
+      <div class="card-body">
+        <div id="log-container">
+          <p class="text-secondary"></p>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+</body>
+
+</html>

@@ -74,6 +74,102 @@ def detail():
     return render_template("detail.html", jsondata=jsondata)
 
 
+@app.route("/history")
+def history():
+    id = request.args.get("id")
+
+    """載入資料"""
+    data_path = "data.json"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            jsonarray = json.load(f)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
+
+    return render_template("history.html", jsondata=jsonarray, id=id)
+
+
+@app.route("/getHistoryData", methods=["POST"])
+def getHistoryData():
+    id = request.get_json().get("id")
+
+    """載入資料"""
+    data_path = "data.json"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            jsonarray = json.load(f)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
+
+    jsonarray = list(filter(lambda item: item["id"] == id, jsonarray))
+    if not jsonarray:
+        jsondata = []
+    else:
+        jsondata = jsonarray[0]
+
+    dir = jsondata["dir"]
+
+    history_path = os.path.join(
+        RUN_DIR_PATH_three,
+        dir,
+        RESPONSE_FILES_DIR,
+    )
+    # 取得該資料夾下所有 txt 檔案
+    txt_files = []
+    if os.path.exists(history_path):
+        for fname in os.listdir(history_path):
+            if fname.lower().endswith(".txt"):
+                txt_files.append({"filename": fname})
+
+    return (jsonify(txt_files), 200)
+
+
+@app.route("/getTxtContent", methods=["POST"])
+def getTxtContent():
+    id = request.get_json().get("id")
+    filename = request.get_json().get("filename")
+
+    """載入資料"""
+    data_path = "data.json"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            jsonarray = json.load(f)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
+
+    jsonarray = list(filter(lambda item: item["id"] == id, jsonarray))
+    if not jsonarray:
+        jsondata = []
+    else:
+        jsondata = jsonarray[0]
+
+    dir = jsondata["dir"]
+
+    txt_file = os.path.join(RUN_DIR_PATH_three, dir, RESPONSE_FILES_DIR, filename)
+    if not os.path.exists(txt_file):
+        return jsonify({"error": "檔案不存在"}), 404
+
+    try:
+        with open(txt_file, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception as e:
+        return jsonify({"error": f"讀取檔案時發生錯誤: {e}"}), 500
+
+    return (jsonify({"content": content}), 200)
+
+
 @app.route("/uploadfile", methods=["POST"])
 def uploadfile():
     """
@@ -287,8 +383,6 @@ def gemini_task_generator(request_data):
                 )
                 yield stream_log("status", "檔案上傳完成！")
             else:
-                run_cnt = run_cnt + 1
-
                 # 判斷是文字，送出執行
                 yield stream_log("status", "正在發送訊息至 Gemini...")
                 response = chat_session.send_message(
@@ -311,13 +405,14 @@ def gemini_task_generator(request_data):
                     response
                     + "\n\n====================回應分隔線====================\n\n"
                 )
+                run_cnt = run_cnt + 1
 
                 if not item == json_data["prompts"][-1]:
                     yield stream_log("status", "處理完畢，暫停 5 秒...")
                     time.sleep(5)
                     yield stream_log("status", "暫停結束，繼續處理下一個指令。")
 
-        if not errorResult:
+        if run_cnt > 0 and not full_response_content.strip() == "":
             # --- 5. 儲存最終結果 ---
             yield stream_log("status", "所有指令處理完畢，正在儲存最終結果...")
             now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
