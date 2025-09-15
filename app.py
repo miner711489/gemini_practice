@@ -14,7 +14,6 @@ from flask import (
     jsonify,
 )
 from GeminiChatSession import GeminiChatSession
-import config
 from collections import defaultdict
 
 
@@ -326,6 +325,21 @@ def gemini_task_generator(request_data):
             print(content)
         return f"data: {log_entry}\n\n"
 
+    # # <-- 新增：檢查並設定 API Key -->
+    # api_key = request_data.get("apiKey")  # <-- 新增：從請求中獲取 API Key
+    # if not api_key:
+    #     yield stream_log("error", "錯誤：請求中未提供 API Key。")
+    #     return  # 停止執行
+
+    # try:
+    #     # 設定 Google AI 的 API Key
+    #     genai.configure(api_key=api_key)
+    #     yield stream_log("status", "API Key 已成功設定。")
+    # except Exception as e:
+    #     yield stream_log("error", f"設定 API Key 時發生錯誤：{e}")
+    #     return  # 停止執行
+    # # <-- 新增結束 -->
+
     """載入資料"""
     data_path = "data.json"
     try:
@@ -424,8 +438,19 @@ def gemini_task_generator(request_data):
             os.makedirs(os.path.dirname(final_path), exist_ok=True)
             with open(final_path, "w", encoding="utf-8") as f:
                 f.write(full_response_content)
-
             yield stream_log("status", f"回應已成功儲存至: {final_path}")
+
+            history_filename = f"history_{now_str}.txt"
+            history_path = os.path.join(
+                RUN_DIR_PATH_three, dir_name, RESPONSE_FILES_DIR, history_filename
+            )
+
+            os.makedirs(os.path.dirname(history_path), exist_ok=True)
+            with open(history_path, "w", encoding="utf-8") as f:
+                for line in chat_session.history:
+                    f.write(str(line) + "\n")
+            yield stream_log("status", f"對話已成功儲存至: {history_path}")
+
         else:
             yield stream_log("status", f"發生錯誤，不執行儲存作業。")
 
