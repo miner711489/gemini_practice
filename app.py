@@ -261,6 +261,7 @@ def doSave():
                         # 使用 shutil.move 來移動檔案
                         shutil.move(src_file_path, dest_file_path)
                         print(f"檔案已成功從 {src_file_path} 移動到 {dest_file_path}")
+                        item["mode"] == ""
                     except shutil.Error as e:
                         print(f"移動檔案時發生錯誤: {e}")
                     except Exception as e:
@@ -442,13 +443,45 @@ def gemini_task_generator(request_data):
 
             history_filename = f"history_{now_str}.txt"
             history_path = os.path.join(
-                RUN_DIR_PATH_three, dir_name, RESPONSE_FILES_DIR, history_filename
+                RUN_DIR_PATH_three, dir_name, "history", history_filename
             )
+
+            history_to_save = []
+            for message in chat_session.history:
+                message_dict = {"role": message.role, "parts": []}
+                for part in message.parts:
+                    print(part)
+                    print('-----')
+                    # 檢查是否為 TextPart
+                    if hasattr(part, "text"):
+                        message_dict["parts"].append(
+                            {"type": "text", "text": part.text}
+                        )
+                    # 檢查是否為 FileDataPart (通常來自 genai.upload_file)
+                    elif hasattr(part, "file_data"):
+                        # FileDataPart 包含 mime_type 和 uri
+                        message_dict["parts"].append(
+                            {
+                                "type": "file_data",
+                                "mime_type": part.file_data.mime_type,
+                                "uri": part.file_data.uri,
+                            }
+                        )
+                    # 如果還有其他類型的 Part (例如 BlobPart)，可以添加處理邏輯。
+                    # 但對於 BlobPart (原始位元組數據)，直接保存到 JSON 會導致文件過大，
+                    # 且通常不適合重新載入以繼續對話，除非你將原始檔案也保存並重新載入。
+                    # 對於需要持久化的檔案，通常建議使用 genai.upload_file 獲取 URI。
+                    else:
+                        print(f"警告：發現未知類型的對話部分，已跳過：{type(part)}")
+                        # 你可以選擇保存一個未知類型的標記或其字串表示
+                        # message_dict["parts"].append({"type": "unknown", "content": str(part)})
+
+                history_to_save.append(message_dict)
 
             os.makedirs(os.path.dirname(history_path), exist_ok=True)
             with open(history_path, "w", encoding="utf-8") as f:
-                for line in chat_session.history:
-                    f.write(str(line) + "\n")
+                json.dump(history_to_save, f, ensure_ascii=False, indent=4)
+
             yield stream_log("status", f"對話已成功儲存至: {history_path}")
 
         else:
