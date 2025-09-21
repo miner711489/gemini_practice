@@ -450,21 +450,18 @@ def gemini_task_generator(request_data):
             for message in chat_session.history:
                 message_dict = {"role": message.role, "parts": []}
                 for part in message.parts:
-                    print(part)
-                    print('-----')
                     # 檢查是否為 TextPart
-                    if hasattr(part, "text"):
+                    if str(part.text)!="":
                         message_dict["parts"].append(
                             {"type": "text", "text": part.text}
                         )
-                    # 檢查是否為 FileDataPart (通常來自 genai.upload_file)
-                    elif hasattr(part, "file_data"):
+                    elif str(part.file_data) != "":
                         # FileDataPart 包含 mime_type 和 uri
                         message_dict["parts"].append(
                             {
                                 "type": "file_data",
                                 "mime_type": part.file_data.mime_type,
-                                "uri": part.file_data.uri,
+                                "uri": part.file_data.file_uri,
                             }
                         )
                     # 如果還有其他類型的 Part (例如 BlobPart)，可以添加處理邏輯。
