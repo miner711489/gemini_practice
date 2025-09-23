@@ -136,3 +136,5 @@ example/
 ven/
 
 .vscode/
+
+data.json
