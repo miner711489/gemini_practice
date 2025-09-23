@@ -11,6 +11,7 @@ services:
     ports:
       - "5001:5001"  
     # 掛載當前目錄到容器內 /app
+    # restart: always
     volumes:
       - .:/app  
     # 設定時區為台北
