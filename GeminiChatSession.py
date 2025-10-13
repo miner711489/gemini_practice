@@ -200,7 +200,7 @@ class GeminiChatSession:
                 # print(response)
                 current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 self.printLog(f"\nGemini 已回傳訊息，{current_datetime}...")
-                return response.text
+                return response.text.replace('**', '')
             except (exceptions.InternalServerError, exceptions.DeadlineExceeded,google_exceptions.ResourceExhausted) as e:
                 log_time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 self.printLog(
