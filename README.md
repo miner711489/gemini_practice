@@ -65,3 +65,12 @@ docker-compose.yml
 
 停止
 ```docker-compose down```
+
+### 2025.10.18 看到的文件，程式庫google-generativeai已棄用，要改成google-genai
+https://ai.google.dev/gemini-api/docs/libraries?hl=zh-tw#previous-sdks
+```pip install google-genai```
+
+```
+from google import genai
+from google.genai import types
+```

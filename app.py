@@ -4,7 +4,6 @@ import base64
 import time
 import json
 from datetime import datetime
-import google.generativeai as genai
 from flask import (
     Flask,
     render_template,
@@ -363,13 +362,12 @@ def gemini_task_generator(request_data):
         start_time = time.perf_counter()
         yield stream_log("status", f"處理程序開始，使用模型{run_model}...")
 
-        generation_config = genai.types.GenerationConfig(
-            temperature=2,
-            # max_output_tokens=16384,
-        )
+        # generation_config = genai.types.GenerationConfig(
+        #     temperature=2,
+        # )
 
         chat_session = GeminiChatSession(
-            model_name=run_model, generation_config=generation_config
+            model_name=run_model
         )
 
         uploaded_files_result = []
@@ -423,8 +421,8 @@ def gemini_task_generator(request_data):
                 run_cnt = run_cnt + 1
 
                 if not item == json_data["prompts"][-1]:
-                    yield stream_log("status", "處理完畢，暫停 5 秒...")
-                    time.sleep(5)
+                    yield stream_log("status", "處理完畢，暫停 10 秒...")
+                    time.sleep(10)
                     yield stream_log("status", "暫停結束，繼續處理下一個指令。")
 
         if run_cnt > 0 and not full_response_content.strip() == "":

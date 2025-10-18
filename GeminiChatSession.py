@@ -2,7 +2,8 @@ import os
 import time
 import random
 from datetime import datetime
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from google.api_core import exceptions
 from typing import List, Optional, Dict, Any
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
@@ -68,14 +69,28 @@ class GeminiChatSession:
         ]
 
         self.printLog(f"正在初始化模型 '{model_name}'...")
-        self.model = genai.GenerativeModel(
-            model_name=model_name,
+        # self.model = genai.GenerativeModel(
+        #     model_name=model_name,
+        #     system_instruction=system_instruction_text,
+        #     safety_settings=safety_settings,
+        # )
+
+        # 這邊要修一下config的部分
+        self.generation_config = generation_config
+        # self.chat = self.model.start_chat(history=initial_history or [])
+
+        config = types.GenerateContentConfig(
             system_instruction=system_instruction_text,
-            safety_settings=safety_settings,
+            temperature = 2,
+            # safety_settings = safety_settings
         )
 
-        self.generation_config = generation_config
-        self.chat = self.model.start_chat(history=initial_history or [])
+        self.client = genai.Client()
+        self.chat = self.client.chats.create(
+            model=model_name,
+            config=config,
+            history=initial_history or []
+        )
         self.printLog("對話 session 已成功啟動。")
 
     def upload_files(self, file_paths: List[str]) -> List[Any]:
@@ -94,77 +109,93 @@ class GeminiChatSession:
         for path in file_paths:
             try:
                 NeedUpdate = True
+                
+                # 新寫法，取得已上傳檔案的資訊
+                # 將檔案上傳到google
+                file_obj = self.client.files.upload(file=path)
+                uploaded_files.append(file_obj)
 
+                # 這邊是要取得已經上傳的檔案相關資訊
+                print(file_obj.name)
+                file_info = self.client.files.get(name=file_obj.name)
+                print(file_info)
+
+                
                 # 找找看之前上傳的檔案能不能用
-                update_file_name = os.path.basename(path)
-                print(f"update_file_name: {update_file_name}")
-                all_files = genai.list_files()
-                matching_files = [
-                    f for f in all_files if f.display_name == update_file_name
-                ]
-                if matching_files:
-                    matching_files.sort(key=lambda f: f.create_time, reverse=True)
-                    if matching_files[0].state.name == "ACTIVE":
-                        print(f"抓到先前上傳的")
-                        processing_files.append(matching_files[0])
-                        NeedUpdate = False
-                        jump = True
+                # update_file_name = os.path.basename(path)
+                # print(f"update_file_name: {update_file_name}")
+                # 下面是原本的程式碼
+                # all_files = genai.list_files()
+                # matching_files = [
+                #     f for f in all_files if f.display_name == update_file_name
+                # ]
+                # if matching_files:
+                #     matching_files.sort(key=lambda f: f.create_time, reverse=True)
+                #     if matching_files[0].state.name == "ACTIVE":
+                #         print(f"抓到先前上傳的")
+                #         processing_files.append(matching_files[0])
+                #         NeedUpdate = False
+                #         jump = True
 
-                if NeedUpdate:
-                    print(f"正在上傳檔案：{path}")
-                    # 假設 genai 有 upload_file 方法，實際請依官方 API 調整
-                    file_obj = genai.upload_file(
-                        path, display_name=os.path.basename(path)
-                    )
-                    processing_files.append(file_obj)
-                    # print(f"檔案上傳成功：{path}")
+                # if NeedUpdate:
+                #     print(f"正在上傳檔案：{path}")
+                #     # 假設 genai 有 upload_file 方法，實際請依官方 API 調整
+                #     file_obj = genai.upload_file(
+                #         path, display_name=os.path.basename(path)
+                #     )
+                #     processing_files.append(file_obj)
+                #     # print(f"檔案上傳成功：{path}")
             except Exception as e:
                 print(f"檔案上傳失敗：{path}，錯誤：{e}")
 
+        # print('取得已上傳的檔案列表')
+        # for f in self.client.files.list():
+        #     print(f)
+
         print("\n--- 所有檔案上傳請求已提交，開始等待後端處理 ---")
 
-        request_delay = 5
-        while processing_files:
-            print(
-                f"\n還有 {len(processing_files)} 個檔案正在處理中... ({request_delay}秒後檢查)"
-            )
-            if not jump:
-                time.sleep(request_delay)
+        # request_delay = 5
+        # while processing_files:
+        #     print(
+        #         f"\n還有 {len(processing_files)} 個檔案正在處理中... ({request_delay}秒後檢查)"
+        #     )
+        #     if not jump:
+        #         time.sleep(request_delay)
 
-            # 為了能在迴圈中安全地移除元素，我們遍歷列表的副本
-            # 或者建立一個新的列表來存放下一輪還需要處理的檔案
-            still_processing = []
-            for file_obj in processing_files:
-                try:
-                    # 獲取檔案的最新狀態
-                    latest_file_state = genai.get_file(name=file_obj.name)
+        #     # 為了能在迴圈中安全地移除元素，我們遍歷列表的副本
+        #     # 或者建立一個新的列表來存放下一輪還需要處理的檔案
+        #     still_processing = []
+        #     for file_obj in processing_files:
+        #         try:
+        #             # 獲取檔案的最新狀態
+        #             latest_file_state = genai.get_file(name=file_obj.name)
 
-                    if latest_file_state.state.name == "ACTIVE":
-                        print(
-                            f"✅ 成功：'{latest_file_state.display_name}' 已準備就緒 (ACTIVE)。"
-                        )
-                        uploaded_files.append(latest_file_state)
-                    elif latest_file_state.state.name == "FAILED":
-                        print(
-                            f"❌ 失敗：'{latest_file_state.display_name}' 處理失敗 (FAILED)。"
-                        )
-                        uploaded_files.append(
-                            {
-                                "path": latest_file_state.display_name,
-                                "error": "File processing failed.",
-                            }
-                        )
-                    else:  # 仍然是 PROCESSING
-                        # 將仍在處理的檔案放回下一輪的檢查清單
-                        still_processing.append(file_obj)
+        #             if latest_file_state.state.name == "ACTIVE":
+        #                 print(
+        #                     f"✅ 成功：'{latest_file_state.display_name}' 已準備就緒 (ACTIVE)。"
+        #                 )
+        #                 uploaded_files.append(latest_file_state)
+        #             elif latest_file_state.state.name == "FAILED":
+        #                 print(
+        #                     f"❌ 失敗：'{latest_file_state.display_name}' 處理失敗 (FAILED)。"
+        #                 )
+        #                 uploaded_files.append(
+        #                     {
+        #                         "path": latest_file_state.display_name,
+        #                         "error": "File processing failed.",
+        #                     }
+        #                 )
+        #             else:  # 仍然是 PROCESSING
+        #                 # 將仍在處理的檔案放回下一輪的檢查清單
+        #                 still_processing.append(file_obj)
 
-                except Exception as e:
-                    print(
-                        f"❌ 錯誤：檢查 '{file_obj.display_name}' 狀態時發生錯誤: {e}"
-                    )
-                    # failed_files.append({"path": file_obj.display_name, "error": f"Error checking status: {e}"})
+        #         except Exception as e:
+        #             print(
+        #                 f"❌ 錯誤：檢查 '{file_obj.display_name}' 狀態時發生錯誤: {e}"
+        #             )
+        #             # failed_files.append({"path": file_obj.display_name, "error": f"Error checking status: {e}"})
 
-                processing_files = still_processing
+        #         processing_files = still_processing
 
         return uploaded_files
 
@@ -195,12 +226,11 @@ class GeminiChatSession:
             try:
                 # 對於多輪對話，我們使用 chat.send_message() 而非 model.generate_content()
                 response = self.chat.send_message(
-                    request_content, generation_config=self.generation_config
+                    request_content, config=self.generation_config
                 )
-                # print(response)
                 current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 self.printLog(f"\nGemini 已回傳訊息，{current_datetime}...")
-                return response.text.replace('**', '')
+                return response.text
             except (exceptions.InternalServerError, exceptions.DeadlineExceeded,google_exceptions.ResourceExhausted) as e:
                 log_time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 self.printLog(
@@ -211,7 +241,6 @@ class GeminiChatSession:
                     if hasattr(e, "retry_delay") and e.retry_delay is not None:
                         print(f" {e.retry_delay}")
                         
-                    # 指數退避邏輯：等待時間 = 基礎延遲 * 2^嘗試次數 + 一個隨機的毫秒數
                     self.printLog(f"將在 10 秒後重試...", True)
                     time.sleep(10)
                 else:
@@ -225,4 +254,4 @@ class GeminiChatSession:
     @property
     def history(self) -> List:
         """返回目前的對話歷史紀錄。"""
-        return self.chat.history
+        return self.chat.get_history()
