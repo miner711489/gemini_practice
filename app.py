@@ -391,10 +391,14 @@ def gemini_task_generator(request_data):
                     os.path.join(RUN_DIR_PATH_three, dir_name, prompt_content)
                 ]
                 yield stream_log("status", f"正在上傳檔案: {prompt_content}...")
-                uploaded_files_result.append(
-                    chat_session.upload_files(files_to_upload)[0]
-                )
-                yield stream_log("status", "檔案上傳完成！")
+                lst_upload_files = chat_session.upload_files(files_to_upload)
+
+                if lst_upload_files and len(lst_upload_files) > 0:
+                    file_info = lst_upload_files[0]
+                    uploaded_files_result.append(file_info)
+                    yield stream_log("status", "檔案上傳完成！")
+                else:
+                    yield stream_log("status", f"檔案上傳失敗或回傳為空，已跳過檔案: {prompt_content}")
             else:
                 # 判斷是文字，送出執行
                 yield stream_log("status", "正在發送訊息至 Gemini...")
@@ -402,10 +406,15 @@ def gemini_task_generator(request_data):
                     prompt=prompt_content, uploaded_files=uploaded_files_result
                 )
 
+                if(response == None):
+                    yield stream_log("status", f"發生Response None錯誤，停止執行。")
+                    break
+
+                response = response.replace("**","")
                 yield stream_log("data", response, False)  # 將單次回應即時傳到前端
 
                 errorResult = (
-                    "block_reason: PROHIBITED_CONTENT" in response
+                    "PROHIBITED_CONTENT" in response
                     or "GenerateRequestsPerMinutePerProjectPerModel" in response
                     or "GenerateRequestsPerDayPerProjectPerModel" in response
                 )

@@ -104,99 +104,46 @@ class GeminiChatSession:
             List[Any]: 上傳後的檔案物件列表，可傳給 send_message 的 uploaded_files 參數。
         """
         uploaded_files = []
-        processing_files = []  # 用於存放已上傳但仍在處理中的檔案
-        jump = False
         for path in file_paths:
-            try:
-                NeedUpdate = True
-                
+            try:                
                 # 新寫法，取得已上傳檔案的資訊
                 # 將檔案上傳到google
-                file_obj = self.client.files.upload(file=path)
-                uploaded_files.append(file_obj)
-
-                # 這邊是要取得已經上傳的檔案相關資訊
-                print(file_obj.name)
-                file_info = self.client.files.get(name=file_obj.name)
-                print(file_info)
-
+                file_name = os.path.basename(path)
                 
-                # 找找看之前上傳的檔案能不能用
-                # update_file_name = os.path.basename(path)
-                # print(f"update_file_name: {update_file_name}")
-                # 下面是原本的程式碼
-                # all_files = genai.list_files()
-                # matching_files = [
-                #     f for f in all_files if f.display_name == update_file_name
-                # ]
-                # if matching_files:
-                #     matching_files.sort(key=lambda f: f.create_time, reverse=True)
-                #     if matching_files[0].state.name == "ACTIVE":
-                #         print(f"抓到先前上傳的")
-                #         processing_files.append(matching_files[0])
-                #         NeedUpdate = False
-                #         jump = True
+                # 列出專案擁有的 File 中繼資料。
+                lstFiles = self.client.files.list()
+                if lstFiles:
+                    lstFiles = [item for item in lstFiles if getattr(item, "display_name", None) == file_name]
+                    if lstFiles:
+                        # 檢查 state 是否為 ACTIVE；state 可能是物件（有 name 屬性）或字串
+                        def _is_active(item):
+                            state = getattr(item, "state", None)
+                            if state is None:
+                                return False
+                            name = getattr(state, "name", None)
+                            if name is not None:
+                                return name == "ACTIVE"
+                            return str(state).upper() == "ACTIVE"
 
-                # if NeedUpdate:
-                #     print(f"正在上傳檔案：{path}")
-                #     # 假設 genai 有 upload_file 方法，實際請依官方 API 調整
-                #     file_obj = genai.upload_file(
-                #         path, display_name=os.path.basename(path)
-                #     )
-                #     processing_files.append(file_obj)
-                #     # print(f"檔案上傳成功：{path}")
+                        lstFiles = [item for item in lstFiles if _is_active(item)]
+                    else:
+                        lstFiles = None
+                else:
+                    lstFiles = None
+
+                if not lstFiles== None:
+                    print(f"取得先前上傳的「{file_name}」")
+                    uploaded_files.append(lstFiles[0])
+                else:
+                    print(f"找不到之前上傳的「{file_name}」，開始上傳新的檔案。")
+                    uploadFileConfig = {"display_name": file_name}
+                    file_obj = self.client.files.upload(file=path,config=uploadFileConfig)
+                    uploaded_files.append(file_obj)
+
             except Exception as e:
                 print(f"檔案上傳失敗：{path}，錯誤：{e}")
 
-        # print('取得已上傳的檔案列表')
-        # for f in self.client.files.list():
-        #     print(f)
-
         print("\n--- 所有檔案上傳請求已提交，開始等待後端處理 ---")
-
-        # request_delay = 5
-        # while processing_files:
-        #     print(
-        #         f"\n還有 {len(processing_files)} 個檔案正在處理中... ({request_delay}秒後檢查)"
-        #     )
-        #     if not jump:
-        #         time.sleep(request_delay)
-
-        #     # 為了能在迴圈中安全地移除元素，我們遍歷列表的副本
-        #     # 或者建立一個新的列表來存放下一輪還需要處理的檔案
-        #     still_processing = []
-        #     for file_obj in processing_files:
-        #         try:
-        #             # 獲取檔案的最新狀態
-        #             latest_file_state = genai.get_file(name=file_obj.name)
-
-        #             if latest_file_state.state.name == "ACTIVE":
-        #                 print(
-        #                     f"✅ 成功：'{latest_file_state.display_name}' 已準備就緒 (ACTIVE)。"
-        #                 )
-        #                 uploaded_files.append(latest_file_state)
-        #             elif latest_file_state.state.name == "FAILED":
-        #                 print(
-        #                     f"❌ 失敗：'{latest_file_state.display_name}' 處理失敗 (FAILED)。"
-        #                 )
-        #                 uploaded_files.append(
-        #                     {
-        #                         "path": latest_file_state.display_name,
-        #                         "error": "File processing failed.",
-        #                     }
-        #                 )
-        #             else:  # 仍然是 PROCESSING
-        #                 # 將仍在處理的檔案放回下一輪的檢查清單
-        #                 still_processing.append(file_obj)
-
-        #         except Exception as e:
-        #             print(
-        #                 f"❌ 錯誤：檢查 '{file_obj.display_name}' 狀態時發生錯誤: {e}"
-        #             )
-        #             # failed_files.append({"path": file_obj.display_name, "error": f"Error checking status: {e}"})
-
-        #         processing_files = still_processing
-
         return uploaded_files
 
     def send_message(self, prompt: str, uploaded_files: Optional[List] = None):
