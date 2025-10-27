@@ -125,7 +125,13 @@ def getHistoryData():
     if os.path.exists(history_path):
         for fname in os.listdir(history_path):
             if fname.lower().endswith(".txt"):
-                txt_files.append({"filename": fname})
+                file_path = os.path.join(history_path, fname)
+                creation_time = os.path.getctime(file_path)
+                creation_datetime = datetime.fromtimestamp(creation_time)
+                txt_files.append({
+                    "filename": fname,
+                    "createtime": creation_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                })
 
     return (jsonify(txt_files), 200)
 
