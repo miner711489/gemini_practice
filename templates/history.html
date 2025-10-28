@@ -8,11 +8,11 @@
   <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/datatables.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/bootstrap/bootstrap.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/axios/axios.min.js') }}"></script>
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.min.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap/bootstrap.min.css') }}" />
   <style>
-
     #log-container {
       white-space: pre-line;
       word-wrap: break-word;
@@ -49,7 +49,9 @@
         getHistoryData($("#lstRunId").val());
       }).change();
 
-
+      $("#btnDeleteFile").click(function () {
+        DeleteFile($("#lstRunId").val());
+      });
     });
 
 
@@ -62,7 +64,6 @@
         dataTable.destroy();
         $('#table1 tbody').empty();
       }
-      console.log(jsondata)
       dataTable = $('#table1').DataTable({
         data: jsondata,
         columns: [
@@ -73,7 +74,7 @@
             },
             className: "text-center"
           },
-           { // 勾選欄位
+          { // 勾選欄位
             data: null,
             orderable: false,
             className: "text-center",
@@ -179,6 +180,48 @@
         console.error('Error:', error);
       }
     }
+    async function DeleteFile(id) {
+      try {
+        // Get all checked rows
+        let selectedFiles = [];
+        $('input[name="selectRow"]:checked').each(function () {
+          let rowData = dataTable.row($(this).closest('tr')).data();
+          console.log(rowData.filename);
+          selectedFiles.push(rowData.filename);
+        });
+
+        if (selectedFiles.length === 0) {
+          alert('請選擇要刪除的檔案');
+          return;
+        }
+        console.log(selectedFiles);
+
+
+
+        // console.log('Selected files:', selectedFiles);
+
+
+        const axiosResp = await axios.post('/history/getHistoryData', { id: id, lstFile: '' }, {
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const response = {
+          ok: axiosResp.status >= 200 && axiosResp.status < 300,
+          status: axiosResp.status,
+          json: async () => axiosResp.data
+        };
+
+        if (!response.ok) {
+          throw new Error(`HTTP 錯誤：${response.status}`);
+        }
+
+        // await 會暫停程式執行，直到 response.json() 完成並回傳解析後的 JSON
+        const result = await response.json();
+        return result;
+      } catch (error) {
+        // 在這裡處理所有錯誤，包括網路問題和 HTTP 狀態碼錯誤
+        console.error('Error:', error);
+      }
+    }
   </script>
 </head>
 
@@ -224,6 +267,7 @@
 
     <div class="text-center mt-4">
       <button id="btnBack" class="btn btn-primary">上一頁</button>
+      <button id="btnDeleteFile" class="btn btn-danger">刪除勾選檔案</button>
     </div>
 
     <div class="card shadow-lg mt-4">

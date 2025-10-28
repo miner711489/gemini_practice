@@ -13,17 +13,16 @@ from flask import (
     jsonify,
 )
 from GeminiChatSession import GeminiChatSession
-from collections import defaultdict
-
+from history import history_Blueprint
+from config import RESPONSE_FILES_DIR, RUN_DIR_PATH_three
 
 # --- 全域設定 ---
 app = Flask(__name__)
-RUN_OPTIONS_PATH = "RunOptions.json"
-RUN_DIR_PATH = "小說2"
-RESPONSE_FILES_DIR = "Response"
+app.register_blueprint(history_Blueprint, url_prefix="/history")
 
-RUN_DIR_PATH_three = "小說3"
+# TEMP_FOLDER 與實際建立目錄的邏輯保留於此檔
 TEMP_FOLDER = os.path.join(os.getcwd(), RUN_DIR_PATH_three, "temp")
+
 # 檢查資料夾是否存在，如果不存在則創建
 if not os.path.exists(TEMP_FOLDER):
     os.makedirs(TEMP_FOLDER)
@@ -128,10 +127,12 @@ def getHistoryData():
                 file_path = os.path.join(history_path, fname)
                 creation_time = os.path.getctime(file_path)
                 creation_datetime = datetime.fromtimestamp(creation_time)
-                txt_files.append({
-                    "filename": fname,
-                    "createtime": creation_datetime.strftime("%Y-%m-%d %H:%M:%S")
-                })
+                txt_files.append(
+                    {
+                        "filename": fname,
+                        "createtime": creation_datetime.strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+                )
 
     return (jsonify(txt_files), 200)
 
@@ -372,9 +373,7 @@ def gemini_task_generator(request_data):
         #     temperature=2,
         # )
 
-        chat_session = GeminiChatSession(
-            model_name=run_model
-        )
+        chat_session = GeminiChatSession(model_name=run_model)
 
         uploaded_files_result = []
         run_cnt = 0
@@ -404,7 +403,10 @@ def gemini_task_generator(request_data):
                     uploaded_files_result.append(file_info)
                     yield stream_log("status", "檔案上傳完成！")
                 else:
-                    yield stream_log("status", f"檔案上傳失敗或回傳為空，已跳過檔案: {prompt_content}")
+                    yield stream_log(
+                        "status",
+                        f"檔案上傳失敗或回傳為空，已跳過檔案: {prompt_content}",
+                    )
             else:
                 # 判斷是文字，送出執行
                 yield stream_log("status", "正在發送訊息至 Gemini...")
@@ -412,11 +414,11 @@ def gemini_task_generator(request_data):
                     prompt=prompt_content, uploaded_files=uploaded_files_result
                 )
 
-                if(response == None):
+                if response == None:
                     yield stream_log("status", f"發生Response None錯誤，停止執行。")
                     break
 
-                response = response.replace("**","")
+                response = response.replace("**", "")
                 yield stream_log("data", response, False)  # 將單次回應即時傳到前端
 
                 errorResult = (
@@ -464,7 +466,7 @@ def gemini_task_generator(request_data):
                 message_dict = {"role": message.role, "parts": []}
                 for part in message.parts:
                     # 檢查是否為 TextPart
-                    if str(part.text)!="":
+                    if str(part.text) != "":
                         message_dict["parts"].append(
                             {"type": "text", "text": part.text}
                         )
