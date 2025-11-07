@@ -10,6 +10,7 @@
   <script src="{{ url_for('static', filename='js/datatables.1.13.6.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/dataTables.rowReorder.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/bootstrap/bootstrap.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/axios/axios.min.js') }}"></script>
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.min.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/rowReorder.dataTables.min.css') }}" />
@@ -187,7 +188,17 @@
                 const containerDiv = $("<div/>").addClass("file-container-wrapper");
                 const div_file = $("<div/>").addClass("file-container");
 
-                const fileIcon = $('<span/>').addClass('file-icon').text("FILE");//前面的圖示
+                let fileIcon = $('<span/>').addClass('file-icon').text("FILE");//前面的圖示
+                if (row.base64){
+                  // 若 row.base64 已包含 data: 前綴就直接用，否則加上 data URI
+                  const imgSrc = row.base64 ? (row.base64.startsWith('data:') ? row.base64 : 'data:image/png;base64,' + row.base64) : '';
+                  const imgEl = $('<img/>')
+                    .addClass('file-icon')
+                    .attr({ src: imgSrc, alt: data })
+                    .css({ width: '100px', height: '100px', 'object-fit': 'cover', 'border-radius': '4px' });
+                  // 用實際圖片替換預設的圖示元素，並加入移除按鈕
+                  fileIcon = imgEl;
+                }
                 const fileName = $('<span/>').addClass('file-name').text(data);//檔案名稱              
                 const removeBtn = $('<button/>').addClass('file-remove-btn').html('&times;');//移除按鈕
                 // div_file.append(fileIcon).append(fileName).append(removeBtn);
@@ -295,26 +306,6 @@
         // 更新標題欄全選 checkbox 的狀態
         $('#selectAllRows').prop('checked', allChecked);
       });
-
-      // // 【新增點】監聽拖曳完成後的事件
-      // dataTable.on('row-reorder', function (e, diff, edit) {
-      //   // 暫時禁用 DataTables 的排序功能，避免在我們更新資料時觸發不必要的重排序
-      //   dataTable.order.fixed(true);
-
-      //   // diff 參數包含了所有被移動的行的資訊
-      //   // 我們需要遍歷它，來更新我們 jsondata 陣列中的 sortOrder
-      //   for (let i = 0, ien = diff.length; i < ien; i++) {
-      //     let rowData = dataTable.row(diff[i].node).data();
-      //     rowData.sortOrder = diff[i].newPosition; // 更新該行資料的 sortOrder
-      //   }
-
-      //   // 重新啟用 DataTables 的排序功能
-      //   dataTable.order.fixed(false);
-
-      //   // 重新繪製表格，但保持在當前頁面，這樣序號欄位 (meta.row + 1) 會被正確更新
-      //   dataTable.draw(false);
-
-      // });
 
       $('#btnSave').click(async function () {
         var jsonArray = []
@@ -475,6 +466,15 @@
         // 在這裡處理所有錯誤，包括網路問題和 HTTP 狀態碼錯誤
         console.error('Error:', error);
         alert('資料儲存失敗。');
+      }
+    }
+
+    async function getBase64(id,filename) {
+      try {
+        const response = await axios.post('/detail/getBase64', { id: id, filename: filename });
+      } catch (error) {
+        // 在這裡處理所有錯誤，包括網路問題和 HTTP 狀態碼錯誤
+        console.error('Error:', error);
       }
     }
   </script>

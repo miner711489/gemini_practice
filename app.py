@@ -14,11 +14,14 @@ from flask import (
 )
 from GeminiChatSession import GeminiChatSession
 from history import history_Blueprint
+from detail import detail_Blueprint
 from config import RESPONSE_FILES_DIR, RUN_DIR_PATH_three
+import mimetypes
 
 # --- 全域設定 ---
 app = Flask(__name__)
 app.register_blueprint(history_Blueprint, url_prefix="/history")
+app.register_blueprint(detail_Blueprint, url_prefix="/detail")
 
 # TEMP_FOLDER 與實際建立目錄的邏輯保留於此檔
 TEMP_FOLDER = os.path.join(os.getcwd(), RUN_DIR_PATH_three, "temp")
@@ -68,7 +71,49 @@ def detail():
     else:
         jsondata = []
 
+    if isinstance(jsondata, dict):
+        prompts = jsondata.get("prompts")
+        for prompt in prompts:
+            if prompt.get("type") == "file" and ".png" in prompt.get("content"):
+                b64 = getBase64(jsondata.get("dir"),prompt.get("content"))
+                filename = prompt.get("content", "")
+                # 嘗試使用 mimetypes 猜測
+                mime_type, _ = mimetypes.guess_type(filename)
+
+                # 如果猜不到，根據副檔名手動對應常見圖片型別
+                if not mime_type:
+                    ext = os.path.splitext(filename)[1].lower()
+                    ext_map = {
+                        ".png": "image/png",
+                        ".jpg": "image/jpeg",
+                        ".jpeg": "image/jpeg",
+                        ".gif": "image/gif",
+                        ".webp": "image/webp",
+                        ".svg": "image/svg+xml",
+                    }
+                    mime_type = ext_map.get(ext, "application/octet-stream")
+                prompt["base64"] = f"data:{mime_type};base64,{b64}"
+
     return render_template("detail.html", jsondata=jsondata)
+
+def getBase64(dir,filename):
+    b64 = ""
+
+    file_path = os.path.join(
+        RUN_DIR_PATH_three,
+        dir,
+        filename
+    )
+
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode("utf-8")
+        except Exception as e:
+            print(f"讀取或編碼{filename}時發生錯誤: {e}")
+            b64 = ""
+
+    return b64
 
 @app.route("/uploadfile", methods=["POST"])
 def uploadfile():
