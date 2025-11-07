@@ -74,36 +74,35 @@ def detail():
     if isinstance(jsondata, dict):
         prompts = jsondata.get("prompts")
         for prompt in prompts:
-            if prompt.get("type") == "file" and ".png" in prompt.get("content"):
-                b64 = getBase64(jsondata.get("dir"),prompt.get("content"))
+            if prompt.get("type") == "file":
                 filename = prompt.get("content", "")
-                # 嘗試使用 mimetypes 猜測
-                mime_type, _ = mimetypes.guess_type(filename)
-
-                # 如果猜不到，根據副檔名手動對應常見圖片型別
-                if not mime_type:
-                    ext = os.path.splitext(filename)[1].lower()
-                    ext_map = {
-                        ".png": "image/png",
-                        ".jpg": "image/jpeg",
-                        ".jpeg": "image/jpeg",
-                        ".gif": "image/gif",
-                        ".webp": "image/webp",
-                        ".svg": "image/svg+xml",
-                    }
-                    mime_type = ext_map.get(ext, "application/octet-stream")
-                prompt["base64"] = f"data:{mime_type};base64,{b64}"
+                ext = os.path.splitext(filename)[1].lower()
+                if ext in [".png", ".jpg", ".jpeg"]:
+                    b64 = getBase64(jsondata.get("dir"), filename)
+                    
+                    # 嘗試使用 mimetypes 猜測
+                    mime_type, _ = mimetypes.guess_type(filename)
+                    # 如果猜不到，根據副檔名手動對應常見圖片型別
+                    if not mime_type:
+                        ext_map = {
+                            ".png": "image/png",
+                            ".jpg": "image/jpeg",
+                            ".jpeg": "image/jpeg",
+                            ".gif": "image/gif",
+                            ".webp": "image/webp",
+                            ".svg": "image/svg+xml",
+                        }
+                        mime_type = ext_map.get(ext, "application/octet-stream")
+                        
+                    prompt["base64"] = f"data:{mime_type};base64,{b64}"
 
     return render_template("detail.html", jsondata=jsondata)
 
-def getBase64(dir,filename):
+
+def getBase64(dir, filename):
     b64 = ""
 
-    file_path = os.path.join(
-        RUN_DIR_PATH_three,
-        dir,
-        filename
-    )
+    file_path = os.path.join(RUN_DIR_PATH_three, dir, filename)
 
     if os.path.exists(file_path):
         try:
@@ -114,6 +113,7 @@ def getBase64(dir,filename):
             b64 = ""
 
     return b64
+
 
 @app.route("/uploadfile", methods=["POST"])
 def uploadfile():

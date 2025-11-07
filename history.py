@@ -15,7 +15,6 @@ history_Blueprint = Blueprint("history", __name__)
 # URL:http://localhost:5000/NTH/
 @history_Blueprint.route("/", methods=["GET"])
 def PageLoad():
-    
     """載入資料"""
     data_path = "data.json"
     try:
@@ -29,6 +28,7 @@ def PageLoad():
         return None
 
     return render_template("history.html", jsondata=jsonarray)
+
 
 # 傳入ID，回傳先前產生的檔案清單
 @history_Blueprint.route("/getHistoryFileList", methods=["POST"])
@@ -76,11 +76,15 @@ def getHistoryFileList():
                 )
     # 按 createtime 由新到舊排序（最新在前）
     try:
-        txt_files.sort(key=lambda x: datetime.strptime(x["createtime"], "%Y-%m-%d %H:%M:%S"), reverse=True)
+        txt_files.sort(
+            key=lambda x: datetime.strptime(x["createtime"], "%Y-%m-%d %H:%M:%S"),
+            reverse=True,
+        )
     except Exception as e:
         print(f"排序時發生錯誤: {e}")
 
     return (jsonify(txt_files), 200)
+
 
 # 取得之前產生的小說內容
 @history_Blueprint.route("/getTxtContent", methods=["POST"])
@@ -119,6 +123,7 @@ def getTxtContent():
         return jsonify({"error": f"讀取檔案時發生錯誤: {e}"}), 500
 
     return (jsonify({"content": content}), 200)
+
 
 @history_Blueprint.route("/doDeleteFile", methods=["POST"])
 def doDeleteFile():
@@ -165,8 +170,3 @@ def doDeleteFile():
                 continue
 
     return (jsonify(""), 200)
-
-
-
-
-

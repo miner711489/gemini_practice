@@ -27,8 +27,10 @@ class GeminiChatSession:
         generation_config: Optional[genai.types.GenerationConfig] = None,
         initial_history: Optional[List] = None,
     ):
-        
-        system_instruction_path = os.path.join(os.path.dirname(__file__), "SystemInstruction.txt")
+
+        system_instruction_path = os.path.join(
+            os.path.dirname(__file__), "SystemInstruction.txt"
+        )
         if os.path.exists(system_instruction_path):
             with open(system_instruction_path, "r", encoding="utf-8") as f:
                 system_instruction_text = f.read()
@@ -46,7 +48,6 @@ class GeminiChatSession:
 
             with open(system_instruction_path, "w", encoding="utf-8") as f:
                 f.write(system_instruction_text)
-
 
         # 調整安全設定
         safety_settings = [
@@ -81,15 +82,13 @@ class GeminiChatSession:
 
         config = types.GenerateContentConfig(
             system_instruction=system_instruction_text,
-            temperature = 2,
+            temperature=2,
             # safety_settings = safety_settings
         )
 
         self.client = genai.Client()
         self.chat = self.client.chats.create(
-            model=model_name,
-            config=config,
-            history=initial_history or []
+            model=model_name, config=config, history=initial_history or []
         )
         self.printLog("對話 session 已成功啟動。")
 
@@ -105,15 +104,19 @@ class GeminiChatSession:
         """
         uploaded_files = []
         for path in file_paths:
-            try:                
+            try:
                 # 新寫法，取得已上傳檔案的資訊
                 # 將檔案上傳到google
                 file_name = os.path.basename(path)
-                
+
                 # 列出專案擁有的 File 中繼資料。
                 lstFiles = self.client.files.list()
                 if lstFiles:
-                    lstFiles = [item for item in lstFiles if getattr(item, "display_name", None) == file_name]
+                    lstFiles = [
+                        item
+                        for item in lstFiles
+                        if getattr(item, "display_name", None) == file_name
+                    ]
                     if lstFiles:
                         # 檢查 state 是否為 ACTIVE；state 可能是物件（有 name 屬性）或字串
                         def _is_active(item):
@@ -131,13 +134,15 @@ class GeminiChatSession:
                 else:
                     lstFiles = None
 
-                if not lstFiles== None:
+                if not lstFiles == None:
                     print(f"取得先前上傳的「{file_name}」")
                     uploaded_files.append(lstFiles[0])
                 else:
                     print(f"找不到之前上傳的「{file_name}」，開始上傳新的檔案。")
                     uploadFileConfig = {"display_name": file_name}
-                    file_obj = self.client.files.upload(file=path,config=uploadFileConfig)
+                    file_obj = self.client.files.upload(
+                        file=path, config=uploadFileConfig
+                    )
                     uploaded_files.append(file_obj)
 
             except Exception as e:
@@ -178,7 +183,11 @@ class GeminiChatSession:
                 current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 self.printLog(f"\nGemini 已回傳訊息，{current_datetime}...")
                 return response.text
-            except (exceptions.InternalServerError, exceptions.DeadlineExceeded,google_exceptions.ResourceExhausted) as e:
+            except (
+                exceptions.InternalServerError,
+                exceptions.DeadlineExceeded,
+                google_exceptions.ResourceExhausted,
+            ) as e:
                 log_time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                 self.printLog(
                     f"[{log_time}]呼叫 API 時發生可重試錯誤 (第 {attempt + 1} 次失敗): {e}",
@@ -187,7 +196,7 @@ class GeminiChatSession:
                 if attempt < max_retries - 1:
                     if hasattr(e, "retry_delay") and e.retry_delay is not None:
                         print(f" {e.retry_delay}")
-                        
+
                     self.printLog(f"將在 10 秒後重試...", True)
                     time.sleep(10)
                 else:
