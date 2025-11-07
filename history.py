@@ -15,11 +15,24 @@ history_Blueprint = Blueprint("history", __name__)
 # URL:http://localhost:5000/NTH/
 @history_Blueprint.route("/", methods=["GET"])
 def PageLoad():
-    return "This is NTH PageLoad"
+    
+    """載入資料"""
+    data_path = "data.json"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            jsonarray = json.load(f)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
 
+    return render_template("history.html", jsondata=jsonarray)
 
-@history_Blueprint.route("/getHistoryData", methods=["POST"])
-def getHistoryData():
+# 傳入ID，回傳先前產生的檔案清單
+@history_Blueprint.route("/getHistoryFileList", methods=["POST"])
+def getHistoryFileList():
     id = request.get_json().get("id")
 
     """載入資料"""
@@ -61,69 +74,99 @@ def getHistoryData():
                         "createtime": creation_datetime.strftime("%Y-%m-%d %H:%M:%S"),
                     }
                 )
+    # 按 createtime 由新到舊排序（最新在前）
+    try:
+        txt_files.sort(key=lambda x: datetime.strptime(x["createtime"], "%Y-%m-%d %H:%M:%S"), reverse=True)
+    except Exception as e:
+        print(f"排序時發生錯誤: {e}")
 
     return (jsonify(txt_files), 200)
 
+# 取得之前產生的小說內容
+@history_Blueprint.route("/getTxtContent", methods=["POST"])
+def getTxtContent():
+    id = request.get_json().get("id")
+    filename = request.get_json().get("filename")
 
-# 回傳人事資料
-@history_Blueprint.route("/HRData")
-def doDeleteFile():
+    """載入資料"""
+    data_path = "data.json"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            jsonarray = json.load(f)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
 
-    directory = os.path.join(os.path.dirname(__file__), "templates", "NTH")
-    print(directory)
-    files = [
-        os.path.join(directory, f)
-        for f in os.listdir(directory)
-        if "gethrinfo" in f and f.endswith(".html")
-    ]
-
-    if not files:
-        return "No matching files found", 404
-
-    latest_file = max(files, key=os.path.getmtime)
-    latest_file_name = os.path.basename(latest_file)
-    print(latest_file_name)
-
-    with open(latest_file, "r", encoding="Big5", errors="replace") as f:
-        template_content = f.read()
-
-    return render_template_string(template_content)
-
-
-# 讀取架設在Tomcat的NTH人事資料，用big5編碼回傳
-@history_Blueprint.route("/gethrinfo")
-def gethrinfo():
-    url = "http://localhost:8080/NTH/gethrinfo.html"
-    result = requests.get(url)
-    result.encoding = "big5"
-    return result.text
-
-
-# 模擬差勤代理人整合介接網址回傳資料
-@history_Blueprint.route("/NTHAltUrl", methods=["GET"])
-def getNTHAlt():
-    UserID = request.args.get("id", "")  # 預設值為空字串
-    print(UserID)
-    if UserID == "測試":
-        return "0"
+    jsonarray = list(filter(lambda item: item["id"] == id, jsonarray))
+    if not jsonarray:
+        jsondata = []
     else:
-        return "0"
+        jsondata = jsonarray[0]
 
+    dir = jsondata["dir"]
 
-@history_Blueprint.route("/filterLog", methods=["GET"])
-def filterLog():
+    txt_file = os.path.join(RUN_DIR_PATH_three, dir, RESPONSE_FILES_DIR, filename)
+    if not os.path.exists(txt_file):
+        return jsonify({"error": "檔案不存在"}), 404
 
-    log_file_path = os.path.join(
-        os.path.dirname(__file__), "templates", "NTH", "jopnth.log"
+    try:
+        with open(txt_file, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception as e:
+        return jsonify({"error": f"讀取檔案時發生錯誤: {e}"}), 500
+
+    return (jsonify({"content": content}), 200)
+
+@history_Blueprint.route("/doDeleteFile", methods=["POST"])
+def doDeleteFile():
+    id = request.get_json().get("id")
+    files = request.get_json().get("files")
+
+    """載入資料"""
+    data_path = "data.json"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            jsonarray = json.load(f)
+    except FileNotFoundError:
+        print(f"錯誤：找不到設定檔 {data_path}")
+        return None
+    except json.JSONDecodeError:
+        print(f"錯誤：{data_path} 格式不正確。")
+        return None
+
+    jsonarray = list(filter(lambda item: item["id"] == id, jsonarray))
+    if not jsonarray:
+        jsondata = []
+    else:
+        jsondata = jsonarray[0]
+
+    dir = jsondata["dir"]
+
+    history_path = os.path.join(
+        RUN_DIR_PATH_three,
+        dir,
+        RESPONSE_FILES_DIR,
     )
-    print(log_file_path)
 
-    if not os.path.exists(log_file_path):
-        return "Log file not found", 404
+    if os.path.exists(history_path):
+        for fname in os.listdir(history_path):
+            if fname in files:
+                file_path = os.path.join(history_path, fname)
+                try:
+                    os.remove(file_path)
+                    print(f"刪除 {file_path} 成功。")
+                except FileNotFoundError:
+                    pass
+                except Exception as e:
+                    print(f"刪除檔案 {file_path} 時發生錯誤: {e}")
+                continue
 
-    with open(log_file_path, "r", encoding="big5", errors="replace") as f:
-        log_content = f.read()
-        if "Mail Queue 排程" in log_content:
-            print(log_content)
+    return (jsonify(""), 200)
 
-    print("讀取完畢")
+
+
+
+

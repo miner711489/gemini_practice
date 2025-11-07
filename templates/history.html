@@ -46,7 +46,7 @@
       });
 
       $("#lstRunId").change(function () {
-        getHistoryData($("#lstRunId").val());
+        getFileList($("#lstRunId").val());
       }).change();
 
       $("#btnDeleteFile").click(function () {
@@ -54,10 +54,9 @@
       });
     });
 
+    async function getFileList(id) {
 
-    async function getHistoryData(id) {
-
-      var jsondata = await getJsonData(id);
+      var jsondata = await getHistoryFileList(id);
 
       // 初始化 DataTable
       if (dataTable) {
@@ -68,7 +67,7 @@
         data: jsondata,
         columns: [
           { // 序號
-            data: null, orderable: false,
+            data: null, orderable: false,width: "5%",
             render: function (data, type, row, meta) {
               return meta.row + 1;
             },
@@ -78,6 +77,7 @@
             data: null,
             orderable: false,
             className: "text-center",
+            width: "5%",
             render: function (data, type, row, meta) {
               // 為每行資料增加一個 checkbox
               const rowCheck = $("<input/>").attr({ type: "checkbox", name: "selectRow" });
@@ -85,13 +85,15 @@
             }
           },
           {
+            width: "50%",
             data: 'filename',
           },
           {
+            width: "25%",
             data: 'createtime',
           },
           {
-            data: null, orderable: false,
+            data: null, orderable: false, width: "15%",
             render: function (data, type, row) {
               return $("<div/>")
                 .append($("<button/>", { class: "btn btn-success btnView btn-sm mb-1 w-100", text: "查看" })).html()
@@ -130,7 +132,7 @@
       //按鈕事件
       $("#table1").on('click', ".btnView", async function (e) {
         var filename = dataTable.row($(this).parents('tr')).data().filename;
-        const response = await fetch('/getTxtContent', {
+        const response = await fetch('/history/getTxtContent', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -144,21 +146,18 @@
         // await 會暫停程式執行，直到 response.json() 完成並回傳解析後的 JSON
         const result = await response.json();
 
-        console.log(result.content);
         const $logContainer = $('#log-container');
         $logContainer.empty();
 
         const logEntryHtml = `<span class="log-data">${result.content}</span>`;
         const $logEntry = $('<div>').html(logEntryHtml);
         $logContainer.append($logEntry);
-        // $logContainer.scrollTop($logContainer[0].scrollHeight);
-
       });
     }
 
-    async function getJsonData(id) {
+    async function getHistoryFileList(id) {
       try {
-        const response = await fetch('/getHistoryData', {
+        const response = await fetch('/history/getHistoryFileList', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -180,9 +179,9 @@
         console.error('Error:', error);
       }
     }
+
     async function DeleteFile(id) {
       try {
-        // Get all checked rows
         let selectedFiles = [];
         $('input[name="selectRow"]:checked').each(function () {
           let rowData = dataTable.row($(this).closest('tr')).data();
@@ -194,29 +193,9 @@
           alert('請選擇要刪除的檔案');
           return;
         }
-        console.log(selectedFiles);
+        const DeletetFileaResp = await axios.post('/history/doDeleteFile', { id: id, files: selectedFiles });
 
-
-
-        // console.log('Selected files:', selectedFiles);
-
-
-        const axiosResp = await axios.post('/history/getHistoryData', { id: id, lstFile: '' }, {
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const response = {
-          ok: axiosResp.status >= 200 && axiosResp.status < 300,
-          status: axiosResp.status,
-          json: async () => axiosResp.data
-        };
-
-        if (!response.ok) {
-          throw new Error(`HTTP 錯誤：${response.status}`);
-        }
-
-        // await 會暫停程式執行，直到 response.json() 完成並回傳解析後的 JSON
-        const result = await response.json();
-        return result;
+        $("#lstRunId").change();
       } catch (error) {
         // 在這裡處理所有錯誤，包括網路問題和 HTTP 狀態碼錯誤
         console.error('Error:', error);
@@ -228,7 +207,6 @@
 <body>
   <div class="container mt-5 mb-5">
     <div class="card mb-4">
-      <input type="hidden" id="hidId" value="{{id}}" />
       <div class="row mb-3 mt-3 me-2">
         <div class="col-md-2 d-flex align-items-center justify-content-start">
           <label>名稱</label>
@@ -251,11 +229,11 @@
           <table id="table1" class="table table-striped table-bordered mb-0">
             <thead>
               <tr>
-                <th class="text-center" style="width: 5%;">序號</th>
-                <th class="text-center" style="width: 5%;"></th>
-                <th class="text-center" style="width: 70%;">檔名</th>
-                <th class="text-center" style="width: 15%;">建立時間</th>
-                <th class="text-center" style="width: 5%;"></th>
+                <th class="text-center">序號</th>
+                <th class="text-center"></th>
+                <th class="text-center">檔名</th>
+                <th class="text-center">建立時間</th>
+                <th class="text-center"></th>
               </tr>
             </thead>
             <tbody>
