@@ -361,7 +361,12 @@
           const response = await fetch('/runbyid', {
             method: "POST",
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: id, model: model, token: token })
+            body: JSON.stringify({
+              id: id,
+              model: model,
+              runMode: $('input[name="runMode"]:checked').val(),
+              token: token
+            })
           });
 
           if (!response.ok) {
@@ -511,6 +516,18 @@
             <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
             <option value="gemini-flash-latest">gemini-flash-latest</option>
           </select>
+        </div>
+      </div>
+      <div class="row mb-3 me-2">
+        <div class="col-md-10">
+          <div class="form-check">
+            <input id="runMode0" type="radio" name="runMode" value="" checked="checked" />
+            <label for="runMode0">一般</label>
+          </div>
+          <div class="form-check">
+            <input id="runMode1" type="radio" name="runMode" value="stream" />
+            <label for="runMode1">串流</label>
+          </div>
         </div>
       </div>
     </div>

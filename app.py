@@ -79,7 +79,7 @@ def detail():
                 ext = os.path.splitext(filename)[1].lower()
                 if ext in [".png", ".jpg", ".jpeg"]:
                     b64 = getBase64(jsondata.get("dir"), filename)
-                    
+
                     # 嘗試使用 mimetypes 猜測
                     mime_type, _ = mimetypes.guess_type(filename)
                     # 如果猜不到，根據副檔名手動對應常見圖片型別
@@ -93,7 +93,7 @@ def detail():
                             ".svg": "image/svg+xml",
                         }
                         mime_type = ext_map.get(ext, "application/octet-stream")
-                        
+
                     prompt["base64"] = f"data:{mime_type};base64,{b64}"
 
     return render_template("detail.html", jsondata=jsondata)
@@ -261,6 +261,7 @@ def gemini_task_generator(request_data):
 
     run_id = request_data.get("id")
     run_model = request_data.get("model")
+    run_Mode = request_data.get("runMode")
     token = request_data.get("token")
 
     def stream_log(message_type, content, showlog=True):
@@ -349,39 +350,88 @@ def gemini_task_generator(request_data):
                     )
             else:
                 # 判斷是文字，送出執行
-                yield stream_log("status", "正在發送訊息至 Gemini...")
-                response = chat_session.send_message(
-                    prompt=prompt_content, uploaded_files=uploaded_files_result
-                )
+                print("run_Mode", end="")
+                print(run_Mode)
+                if run_Mode == "stream":
+                    yield stream_log("status", "正在發送訊息至 Gemini...(串流模式)")
+                    send_message_stream = chat_session.send_message_stream(
+                        prompt=prompt_content, uploaded_files=uploaded_files_result
+                    )
 
-                if response == None:
-                    yield stream_log("status", f"發生Response None錯誤，停止執行。")
-                    break
+                    response_text = ""
+                    for chunk in send_message_stream:
+                        if chunk:
+                            chunk = chunk.replace("**", "")
+                            
+                            if chunk.endswith("\n"):
+                                print("endswith：\n")
+                            response_text += chunk
+                            yield stream_log(
+                                "data", chunk, False
+                            )  # 將單次回應即時傳到前端
 
-                response = response.replace("**", "")
-                yield stream_log("data", response, False)  # 將單次回應即時傳到前端
+                    if not response_text:
+                        yield stream_log("status", f"發生Response為空錯誤，停止執行。")
+                        break
 
-                errorResult = (
-                    "PROHIBITED_CONTENT" in response
-                    or "GenerateRequestsPerMinutePerProjectPerModel" in response
-                    or "GenerateRequestsPerDayPerProjectPerModel" in response
-                    or "生成回應時發生未預期的錯誤" in response
-                )
+                    errorResult = (
+                        "PROHIBITED_CONTENT" in response_text
+                        or "GenerateRequestsPerMinutePerProjectPerModel"
+                        in response_text
+                        or "GenerateRequestsPerDayPerProjectPerModel" in response_text
+                        or "生成回應時發生未預期的錯誤" in response_text
+                    )
 
-                if errorResult:
-                    yield stream_log("status", f"發生錯誤，停止執行。")
-                    break
+                    if errorResult:
+                        yield stream_log("status", f"發生錯誤，停止執行。")
+                        break
 
-                full_response_content += (
-                    response
-                    + "\n\n====================回應分隔線====================\n\n"
-                )
-                run_cnt = run_cnt + 1
+                    full_response_content += (
+                        response_text
+                        + "\n\n====================回應分隔線====================\n\n"
+                    )
+                    run_cnt = run_cnt + 1
 
-                if not item == json_data["prompts"][-1]:
-                    yield stream_log("status", "處理完畢，暫停 10 秒...")
-                    time.sleep(10)
-                    yield stream_log("status", "暫停結束，繼續處理下一個指令。")
+                    if not item == json_data["prompts"][-1]:
+                        yield stream_log("status", "處理完畢，暫停 10 秒...")
+                        time.sleep(10)
+                        yield stream_log("status", "暫停結束，繼續處理下一個指令。")
+
+                else:
+                    # 判斷是文字，送出執行
+                    yield stream_log("status", "正在發送訊息至 Gemini...")
+                    response = chat_session.send_message(
+                        prompt=prompt_content, uploaded_files=uploaded_files_result
+                    )
+
+                    if response == None:
+                        yield stream_log("status", f"發生Response None錯誤，停止執行。")
+                        break
+
+                    response = response.replace("**", "")
+                    yield stream_log("data", response, False)  # 將單次回應即時傳到前端
+
+                    errorResult = (
+                        "PROHIBITED_CONTENT" in response
+                        or "GenerateRequestsPerMinutePerProjectPerModel" in response
+                        or "GenerateRequestsPerDayPerProjectPerModel" in response
+                        or "生成回應時發生未預期的錯誤" in response
+                    )
+
+                    if errorResult:
+                        yield stream_log("status", f"發生錯誤，停止執行。")
+                        break
+
+                    full_response_content += (
+                        response
+                        + "\n\n====================回應分隔線====================\n\n"
+                    )
+                    run_cnt = run_cnt + 1
+
+                    if not item == json_data["prompts"][-1]:
+                        yield stream_log("status", "處理完畢，暫停 10 秒...")
+                        time.sleep(10)
+                        yield stream_log("status", "暫停結束，繼續處理下一個指令。")
 
         if run_cnt > 0 and not full_response_content.strip() == "":
             # --- 5. 儲存最終結果 ---
@@ -405,29 +455,33 @@ def gemini_task_generator(request_data):
             history_to_save = []
             for message in chat_session.history:
                 message_dict = {"role": message.role, "parts": []}
-                for part in message.parts:
+                for parts in message.parts:
+                    # print("parts:", end="")
+                    # print(parts)
                     # 檢查是否為 TextPart
-                    if str(part.text) != "":
+                    if parts.text != None:
                         message_dict["parts"].append(
-                            {"type": "text", "text": part.text}
+                            {"type": "text", "text": parts.text}
                         )
-                    elif str(part.file_data) != "":
+                    elif parts.file_data != None:
                         # FileDataPart 包含 mime_type 和 uri
+
+                        #  下面這邊要到 GeminiChatSession
+                        # file_id = parts.file_data.file_uri.split("/")[-1]
+                        # file_resource_name = f"files/{file_id}"
+                        # remote_file = chat_session.chat.files.get(name=file_resource_name)
+                        # print("remote_file.display_name:", end="")
+                        # print(remote_file.display_name)
+
                         message_dict["parts"].append(
                             {
                                 "type": "file_data",
-                                "mime_type": part.file_data.mime_type,
-                                "uri": part.file_data.file_uri,
+                                "mime_type": parts.file_data.mime_type,
+                                "uri": parts.file_data.file_uri,
                             }
                         )
-                    # 如果還有其他類型的 Part (例如 BlobPart)，可以添加處理邏輯。
-                    # 但對於 BlobPart (原始位元組數據)，直接保存到 JSON 會導致文件過大，
-                    # 且通常不適合重新載入以繼續對話，除非你將原始檔案也保存並重新載入。
-                    # 對於需要持久化的檔案，通常建議使用 genai.upload_file 獲取 URI。
                     else:
-                        print(f"警告：發現未知類型的對話部分，已跳過：{type(part)}")
-                        # 你可以選擇保存一個未知類型的標記或其字串表示
-                        # message_dict["parts"].append({"type": "unknown", "content": str(part)})
+                        print(f"警告：發現未知類型的對話部分，已跳過：{type(parts)}")
 
                 history_to_save.append(message_dict)
 

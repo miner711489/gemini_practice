@@ -5,7 +5,7 @@ from datetime import datetime
 from google import genai
 from google.genai import types
 from google.api_core import exceptions
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Any, Generator
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 import google.api_core.exceptions as google_exceptions
 
@@ -206,7 +206,81 @@ class GeminiChatSession:
                 print("=====發生未知錯誤=====")
                 print(e)
                 return f"生成回應時發生未預期的錯誤：{e}"
+            
+    def send_message_stream(self, prompt: str, uploaded_files: Optional[List] = None) -> Generator[str, None, None]:
+        """
+        使用串流方式將 prompt 和選擇性的檔案傳送給模型，實時產生回應。
+        這個方法會利用 session 的歷史紀錄來進行有上下文的對話。
 
+        Args:
+            prompt (str): 使用者的文字輸入。
+            uploaded_files (Optional[List]): 使用者上傳的檔案列表 (如果有的話)。
+
+        Yields:
+            str: 逐步從 Gemini 模型接收的回應文字片段。
+
+        Example:
+            for chunk in session.send_message_stream("寫一個故事"):
+                print(chunk, end="", flush=True)
+        """
+        request_content = [prompt]
+        if uploaded_files:
+            request_content.extend(uploaded_files)
+
+        if not prompt and not uploaded_files:
+            yield "錯誤：請提供文字提示或上傳檔案。"
+            return
+
+        max_retries = 5
+
+        for attempt in range(max_retries):
+            current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+            self.printLog(f"\n正在向 Gemini 傳送訊息（串流模式），{current_datetime}...")
+            try:
+                # 使用 stream_generate_content 來啟動串流模式
+                response_stream = self.chat.send_message_stream(
+                    request_content, config=self.generation_config
+                )
+                
+                current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                self.printLog(f"\nGemini 開始串流回應，{current_datetime}...")
+                
+                # 逐段產生回應文字
+                for chunk in response_stream:
+                    # print(chunk)
+                    # print("-----chunk end-----")
+                    if chunk.text:
+                        yield chunk.text
+                
+                current_datetime = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                self.printLog(f"\nGemini 串流已完成，{current_datetime}...")
+                return
+                
+            except (
+                exceptions.InternalServerError,
+                exceptions.DeadlineExceeded,
+                google_exceptions.ResourceExhausted,
+            ) as e:
+                log_time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                self.printLog(
+                    f"[{log_time}]呼叫 API 時發生可重試錯誤 (第 {attempt + 1} 次失敗): {e}",
+                    True,
+                )
+                if attempt < max_retries - 1:
+                    if hasattr(e, "retry_delay") and e.retry_delay is not None:
+                        print(f" {e.retry_delay}")
+
+                    self.printLog(f"將在 10 秒後重試...", True)
+                    time.sleep(10)
+                else:
+                    self.printLog("[{log_time}]已達到最大重試次數，放棄操作。", True)
+                    yield f"呼叫 Google API 失敗，已重試 {max_retries} 次後放棄。最後錯誤：{e}"
+                    return
+            except Exception as e:
+                print("=====發生未知錯誤=====")
+                print(e)
+                yield f"生成回應時發生未預期的錯誤：{e}"
+                return
     @property
     def history(self) -> List:
         """返回目前的對話歷史紀錄。"""
