@@ -395,17 +395,26 @@
                 try {
                   const data = JSON.parse(jsonString);
                   rtnToken = data.token;
+                  promptToken = data.prompttoken;
                   if (token == rtnToken) {
                     const timestamp = new Date().toLocaleTimeString();
                     const logEntryHtml = `
                     <span class="log-item text-muted">[${timestamp}]</span>
-                    <span class="log-${data.type}">${data.content}</span>
+                    <span class="log-${data.type}" name="${promptToken}">${data.content}</span>
                   `;
 
                     const $logEntry = $('<div>').html(logEntryHtml);
                     if (data.type == "data") {
                       $logContainer.append($logEntry);
                       $logContainer.scrollTop($logContainer[0].scrollHeight);
+                    } else if (data.type == "stream") {
+                      if ($logContainer.find('span[name="' + promptToken + '"]').length > 0) {
+                        const logStream = $logContainer.find('span[name="' + promptToken + '"]').last();
+                        logStream.text(logStream.text() + data.content);
+                      } else {
+                        $logContainer.append($logEntry);
+                        $logContainer.scrollTop($logContainer[0].scrollHeight);
+                      }
                     } else {
                       $logMessage.append($logEntry);
                       $logMessage.scrollTop($logContainer[0].scrollHeight);

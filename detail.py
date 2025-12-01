@@ -228,10 +228,15 @@ def gemini_task_generator(request_data):
     run_Mode = request_data.get("runMode")
     token = request_data.get("token")
 
-    def stream_log(message_type, content, showlog=True):
+    def stream_log(message_type, content, showlog=True, prompttoken=""):
         """輔助函式，用於格式化並傳送串流訊息"""
         log_entry = json.dumps(
-            {"type": message_type, "content": content, "token": token}
+            {
+                "type": message_type,
+                "content": content,
+                "token": token,
+                "prompttoken": prompttoken,
+            }
         )
         if showlog:
             print(content)
@@ -294,6 +299,8 @@ def gemini_task_generator(request_data):
 
             prompt_content = item["content"]
             type = item["type"]
+            ts = str(int(time.time() * 1000))
+            prompttoken = f"prompt_{run_id}_{run_cnt}_{ts[-4:]}"
 
             if type == "file":
                 # 判斷是檔案，上傳檔案，並寫到uploaded_files_result裡面
@@ -324,13 +331,9 @@ def gemini_task_generator(request_data):
                     for chunk in send_message_stream:
                         if chunk:
                             chunk = chunk.replace("**", "")
-
-                            if chunk.endswith("\n"):
-                                print("endswith：\n")
                             response_text += chunk
-                            yield stream_log(
-                                "data", chunk, False
-                            )  # 將單次回應即時傳到前端
+                            # 將單次回應即時傳到前端
+                            yield stream_log("stream", chunk, False, prompttoken)
 
                     if not response_text:
                         yield stream_log("status", f"發生Response為空錯誤，停止執行。")
