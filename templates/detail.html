@@ -333,7 +333,7 @@
         data.name = $("#txtName").val();
         data.dir = $("#txtDir").val();
         data.prompts = jsonArray;
-        const response = await fetch('/doSave', {
+        const response = await fetch('/detail/doSave', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data) // 將陣列轉換為 JSON 字串
@@ -358,7 +358,7 @@
         $submitBtn.prop('disabled', true).text('執行中...');
 
         try {
-          const response = await fetch('/runbyid', {
+          const response = await fetch('/detail/runbyid', {
             method: "POST",
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -436,7 +436,7 @@
 
     async function uploadFile(file, base64) {
       try {
-        const response = await fetch('/uploadfile', {
+        const response = await fetch('/detail/uploadfile', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

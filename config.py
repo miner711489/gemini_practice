@@ -3,6 +3,7 @@
 import os
 from dotenv import load_dotenv
 
+
 def setup_and_load_env():
     env_filename = ".env"
 
@@ -40,7 +41,16 @@ def setup_and_load_env():
 
     return api_key
 
+
+def get_TEMP_FOLDER():
+    dir_path = os.path.join(os.getcwd(), RUN_DIR_PATH_three, "temp")
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+    return dir_path
+
+
 # 呼叫函式來完成環境設定並取得 API Key
 GOOGLE_API_KEY = setup_and_load_env()
 RESPONSE_FILES_DIR = "Response"
 RUN_DIR_PATH_three = "小說3"
+TEMP_FOLDER = get_TEMP_FOLDER()
