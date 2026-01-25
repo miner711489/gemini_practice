@@ -420,33 +420,37 @@ def gemini_task_generator(request_data):
             history_to_save = []
             for message in chat_session.history:
                 message_dict = {"role": message.role, "parts": []}
-                for parts in message.parts:
-                    # print("parts:", end="")
-                    # print(parts)
-                    # 檢查是否為 TextPart
-                    if parts.text != None:
-                        message_dict["parts"].append(
-                            {"type": "text", "text": parts.text}
-                        )
-                    elif parts.file_data != None:
-                        # FileDataPart 包含 mime_type 和 uri
+                print(message.parts)
+                if message.parts != None:
+                    for parts in message.parts:
+                        # print("parts:", end="")
+                        # print(parts)
+                        # 檢查是否為 TextPart
+                        if parts.text != None:
+                            message_dict["parts"].append(
+                                {"type": "text", "text": parts.text}
+                            )
+                        elif parts.file_data != None:
+                            # FileDataPart 包含 mime_type 和 uri
 
-                        #  下面這邊要到 GeminiChatSession
-                        # file_id = parts.file_data.file_uri.split("/")[-1]
-                        # file_resource_name = f"files/{file_id}"
-                        # remote_file = chat_session.chat.files.get(name=file_resource_name)
-                        # print("remote_file.display_name:", end="")
-                        # print(remote_file.display_name)
+                            #  下面這邊要到 GeminiChatSession
+                            # file_id = parts.file_data.file_uri.split("/")[-1]
+                            # file_resource_name = f"files/{file_id}"
+                            # remote_file = chat_session.chat.files.get(name=file_resource_name)
+                            # print("remote_file.display_name:", end="")
+                            # print(remote_file.display_name)
 
-                        message_dict["parts"].append(
-                            {
-                                "type": "file_data",
-                                "mime_type": parts.file_data.mime_type,
-                                "uri": parts.file_data.file_uri,
-                            }
-                        )
-                    else:
-                        print(f"警告：發現未知類型的對話部分，已跳過：{type(parts)}")
+                            message_dict["parts"].append(
+                                {
+                                    "type": "file_data",
+                                    "mime_type": parts.file_data.mime_type,
+                                    "uri": parts.file_data.file_uri,
+                                }
+                            )
+                        else:
+                            print(
+                                f"警告：發現未知類型的對話部分，已跳過：{type(parts)}"
+                            )
 
                 history_to_save.append(message_dict)
 

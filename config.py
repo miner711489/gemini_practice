@@ -53,4 +53,5 @@ def get_TEMP_FOLDER():
 GOOGLE_API_KEY = setup_and_load_env()
 RESPONSE_FILES_DIR = "Response"
 RUN_DIR_PATH_three = "小說3"
+Google_AI_STUDIO_BACKUP_DIR = "gaibackup"
 TEMP_FOLDER = get_TEMP_FOLDER()

@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>備份</title>
+  <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/datatables.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/bootstrap/bootstrap.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/axios/axios.min.js') }}"></script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.min.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap/bootstrap.min.css') }}" />
+  <style>
+    #log-container {
+      white-space: pre-line;
+      word-wrap: break-word;
+      background-color: #1e293b;
+      color: #f1f5f9;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      height: 90vh;
+      overflow-y: auto;
+      /* font-family: "Courier New", Courier, monospace; */
+      text-align: left;
+    }
+
+    input[type="checkbox"] {
+      width: 25px;
+      /* 寬度 */
+      height: 25px;
+      /* 高度 */
+      transform: scale(1.2);
+      /* 或者用 transform: scale() 讓它變大，這在不同瀏覽器支援度更好 */
+    }
+  </style>
+
+  <script>
+    var token
+    var dataTable
+    $(document).ready(async function () {
+
+      $("#btnBack").click(function () {
+        location.href = "/";
+      });
+
+      // 點擊登入按鈕，導向後端 callback 開始 OAuth 流程
+      $("#btnLogin").click(function () {
+        // 直接導向後端路由，後端會處理 OAuth callback
+        window.location.href = "/backup/callback";
+      });
+
+      $("#lstFileDir").change(function () {
+        getFileList($("#lstFileDir").val());
+      }).change();
+
+      //這要修改，用路徑名稱+檔名去找檔案來刪除
+      $("#btnDeleteFile").click(function () {
+        DeleteFile($("#lstFileDir").val());
+      });
+    });
+
+    async function getFileList(id) {
+
+      var jsondata = await getHistoryFileList(id);
+
+      // 初始化 DataTable
+      if (dataTable) {
+        dataTable.destroy();
+        $('#table1 tbody').empty();
+      }
+      dataTable = $('#table1').DataTable({
+        data: jsondata,
+        columns: [
+          { // 序號
+            data: null, orderable: false, width: "5%",
+            render: function (data, type, row, meta) {
+              return meta.row + 1;
+            },
+            className: "text-center"
+          },
+          { // 勾選欄位
+            data: null,
+            orderable: false,
+            className: "text-center",
+            width: "5%",
+            render: function (data, type, row, meta) {
+              // 為每行資料增加一個 checkbox
+              const rowCheck = $("<input/>").attr({ type: "checkbox", name: "selectRow" });
+              return $("<div/>").append(rowCheck).html();
+            }
+          },
+          {
+            width: "50%",
+            data: 'filename',
+          },
+          {
+            width: "25%",
+            data: 'createtime',
+          },
+          {
+            data: null, orderable: false, width: "15%",
+            render: function (data, type, row) {
+              return $("<div/>")
+                .append($("<button/>", { class: "btn btn-success btnView btn-sm mb-1 w-100", text: "查看" })).html()
+              // .append($("<button/>", { class: "btn btn-danger btnDel btn-sm mb-1 w-100", text: "刪除" }))
+            }
+          }
+        ],
+        language: {
+          "sProcessing": "處理中...",
+          "sLengthMenu": "顯示 _MENU_ 筆結果",
+          "sZeroRecords": "沒有符合的結果",
+          "sInfo": "顯示第 _START_ 至 _END_ 筆結果，共 _TOTAL_ 筆",
+          "sInfoEmpty": "顯示第 0 至 0 筆結果，共 0 筆",
+          "sInfoFiltered": "(從 _MAX_ 筆結果中過濾)",
+          "sInfoPostFix": "",
+          "sSearch": "搜尋:",
+          "sUrl": "",
+          "oPaginate": {
+            "sFirst": "第一頁",
+            "sPrevious": "上一頁",
+            "sNext": "下一頁",
+            "sLast": "最後一頁"
+          }
+        },
+        pageLength: 10,
+        order: [[0, 'asc']],
+        dom: 't<"text-right"i><"text-center"p>', // 't' 代表 table, 'i' 代表 info, 'p' 代表 pagination
+        searching: false,
+        paging: true,
+        info: true,
+        lengthMenu: false,
+        autoWidth: true,
+        responsive: true,
+      });
+
+      //按鈕事件
+      $("#table1").on('click', ".btnView", async function (e) {
+        var filename = dataTable.row($(this).parents('tr')).data().filename;
+        const response = await fetch('/history/getTxtContent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            "id": $("#lstFileDir").val(),
+            "filename": filename,
+          }),
+        });
+
+        // await 會暫停程式執行，直到 response.json() 完成並回傳解析後的 JSON
+        const result = await response.json();
+
+        const $logContainer = $('#log-container');
+        $logContainer.empty();
+
+        const logEntryHtml = `<span class="log-data">${result.content}</span>`;
+        const $logEntry = $('<div>').html(logEntryHtml);
+        $logContainer.append($logEntry);
+      });
+    }
+
+    async function getHistoryFileList(id) {
+      try {
+        const response = await fetch('/history/getHistoryFileList', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            "id": id,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP 錯誤：${response.status}`);
+        }
+
+        // await 會暫停程式執行，直到 response.json() 完成並回傳解析後的 JSON
+        const result = await response.json();
+        return result;
+      } catch (error) {
+        // 在這裡處理所有錯誤，包括網路問題和 HTTP 狀態碼錯誤
+        console.error('Error:', error);
+      }
+    }
+
+    async function DeleteFile(id) {
+      try {
+        let selectedFiles = [];
+        $('input[name="selectRow"]:checked').each(function () {
+          let rowData = dataTable.row($(this).closest('tr')).data();
+          console.log(rowData.filename);
+          selectedFiles.push(rowData.filename);
+        });
+
+        if (selectedFiles.length === 0) {
+          alert('請選擇要刪除的檔案');
+          return;
+        }
+        const DeletetFileaResp = await axios.post('/history/doDeleteFile', { id: id, files: selectedFiles });
+
+        $("#lstFileDir").change();
+      } catch (error) {
+        // 在這裡處理所有錯誤，包括網路問題和 HTTP 狀態碼錯誤
+        console.error('Error:', error);
+      }
+    }
+
+    function openLoginPopup() {
+      // 定義小視窗的大小與位置（置中）
+      const width = 500;
+      const height = 600;
+      const left = (window.screen.width / 2) - (width / 2);
+      const top = (window.screen.height / 2) - (height / 2);
+
+      // 開啟小視窗，指向 Flask 的 login 路由
+      // 注意：url_for 產生的網址如果是 '/backup/login' 請自行對應
+      const loginUrl = "{{ url_for('backup.login') }}";
+
+      console.log(loginUrl);
+      window.open(
+        loginUrl,
+        'GoogleLogin',
+        `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,status=yes`
+      );
+    }
+
+    async function getDriveFiles() {
+      const DriveFiles = (await axios.get('/backup/getDriveFiles')).data;
+      const $lstGoogleDriveFile = $('#lstGoogleDriveFile');
+      $lstGoogleDriveFile.empty();
+      if (Array.isArray(DriveFiles)) {
+        DriveFiles.forEach(f => $lstGoogleDriveFile.append($('<option>').val(f.id).text(f.name)));
+      }
+    }
+
+    //讀取雲端硬碟上的檔案內容，顯示到網頁上
+    async function doReadDriveFile() {
+      try {
+        const response = await axios.post('/backup/doReadDriveFile', {
+          GoogleDriveFileId: $('#lstGoogleDriveFile').val(),
+        });
+        const result = response.data;
+        const content = result.content != '' ? result.content : (result.error != '' ? "發生錯誤：" + result.error : "發生錯誤，但無法取得錯誤訊息")
+
+        const $logContainer = $('#log-container');
+        $logContainer.empty();
+
+        //這邊記得要與檢視本機檔案的"查看"共用同一方法
+        const logEntryHtml = `<span class="log-data">${response.data.content}</span>`;
+        const $logEntry = $('<div>').html(logEntryHtml);
+        $logContainer.append($logEntry);
+      } catch (error) {
+        console.log('Error:', error);
+      }
+    }
+
+    //下載到本機，同時顯示到網頁上
+    async function doDownload() {
+      try {
+        const response = await axios.post('/backup/doDownload', {
+          GoogleDriveFileId: $('#lstGoogleDriveFile').val(),
+          GoogleDriveFileNam: $('#lstGoogleDriveFile option:selected').text(),
+        });
+
+        const result = response.data;
+        const content = result.content != '' ? result.content : (result.error != '' ? "發生錯誤：" + result.error : "發生錯誤，但無法取得錯誤訊息")
+
+        const $logContainer = $('#log-container');
+        $logContainer.empty();
+
+        //這邊記得要與檢視本機檔案的"查看"共用同一方法
+        const logEntryHtml = `<span class="log-data">${response.data.content}</span>`;
+        const $logEntry = $('<div>').html(logEntryHtml);
+        $logContainer.append($logEntry);
+      } catch (error) {
+        console.log('Error:', error);
+      }
+    }
+
+  </script>
+</head>
+
+<body>
+  <div class="container mt-5 mb-5">
+    <div class="card mb-3">
+      <div class="row m-2">
+        <div class="col-md-2 d-flex align-items-center justify-content-start">
+          <label>帳號</label>
+        </div>
+        <div class="col-md-4">
+          <select class="form-select" id="lstGoogleAccount" name="lstGoogleAccount">
+            <option>暫時沒有用</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <button type="button" onclick="openLoginPopup()" class="btn btn-primary">登入/切換</button>
+          <button type="button" onclick="getDriveFiles()" class="btn btn-primary">取得最新檔案清單</button>
+        </div>
+      </div>
+
+      <div class="row m-2">
+        <div class="col-md-2 d-flex align-items-center justify-content-start">
+          <label>Google雲端檔案</label>
+        </div>
+        <div class="col-md-4">
+          <select class="form-select" id="lstGoogleDriveFile" name="lstGoogleDriveFile">
+          </select>
+        </div>
+        <div class="col-md-4">
+          <button type="button" onclick="doReadDriveFile()" class="btn btn-primary" id="btnRead">讀取內容</button>
+          <button type="button" onclick="doDownload()" class="btn btn-success" id="btnDownload">下載到本機</button>
+        </div>
+      </div>
+
+      <div class="row my-2 mx-2">
+        <div class="col-md-2 d-flex align-items-center justify-content-start">
+          <label>本機資料夾</label>
+        </div>
+        <div class="col-md-4">
+          <select class="form-select" id="lstFileDir" name="lstFileDir">
+            {% for option in lstFile %}
+            <option value="{{ option }}">
+              {{ option }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mb-3">
+      <button id="btnBack" class="btn btn-primary">上一頁</button>
+      <button id="btnDeleteFile" class="btn btn-danger">刪除勾選檔案</button>
+    </div>
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">檔案列表</h5>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse"
+          data-bs-target="#collapseTable" aria-expanded="true" aria-controls="collapseTable">
+          折疊/展開
+        </button>
+      </div>
+
+      <div id="collapseTable" class="collapse">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table id="table1" class="table table-striped table-bordered mb-0">
+              <thead>
+                <tr>
+                  <th class="text-center">序號</th>
+                  <th class="text-center"></th>
+                  <th class="text-center">檔名</th>
+                  <th class="text-center">建立時間</th>
+                  <th class="text-center"></th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-lg mt-4">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">內容</h5>
+      </div>
+      <div class="card-body">
+        <div id="log-container">
+          <p class="text-secondary"></p>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+</body>
+
+</html>

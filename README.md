@@ -74,3 +74,5 @@ https://ai.google.dev/gemini-api/docs/libraries?hl=zh-tw#previous-sdks
 from google import genai
 from google.genai import types
 ```
+
+```pip install flask google-auth google-auth-oauthlib google-api-python-client```
